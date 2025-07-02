@@ -158,4 +158,18 @@ class NotesProvider with ChangeNotifier {
     }
     return _notes.where((n) => intersection.contains(p.basename(n.filePath))).toList();
   }
+
+  Future<void> importNote(String title, String content) async {
+    if (_notesDirectory == null) return;
+    final safeTitle = title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final fileName = '$safeTitle.md';
+    final filePath = '$_notesDirectory/$fileName';
+    if (File(filePath).existsSync()) {
+      throw Exception('Une note avec ce nom existe déjà.');
+    }
+    final note = Note(filePath: filePath, title: title, content: content, tags: []);
+    await note.saveToFile();
+    await loadNotes();
+    selectNote(note);
+  }
 } 

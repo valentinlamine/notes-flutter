@@ -81,8 +81,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   final content = await file.readAsString();
                   final title = file.name.split('.').first;
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                  final filePath = notesProvider.notesDirectory != null ? '${notesProvider.notesDirectory}/$title.md' : '';
-                  await notesProvider.createNote(title);
+                  await notesProvider.importNote(title, content);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Note importée depuis ${file.name}')),
                   );
