@@ -31,6 +31,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _onCloseEditor() {
+    setState(() {
+      _selectedNote = null;
+      _isEditing = false;
+    });
+  }
+
   void _onNoteSaved(Note note) {
     setState(() {
       _selectedNote = note;
@@ -63,8 +70,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             child: ModernSidebar(
-              onTagSelected: (tag) {
+              onTagsSelected: (tags) {
                 setState(() {
+                  // La logique de filtrage est déjà gérée dans le provider
+                  // On peut éventuellement réinitialiser la sélection de note ici si besoin
                   _selectedNote = null;
                   _isEditing = false;
                 });
@@ -96,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     isNewNote: _selectedNote == null && _isEditing,
                     onNoteSaved: _onNoteSaved,
                     onNoteDeleted: _onNoteDeleted,
+                    onClose: _onCloseEditor,
                   )
                 : const Center(
                     child: Column(

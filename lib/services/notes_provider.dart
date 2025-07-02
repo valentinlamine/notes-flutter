@@ -27,6 +27,7 @@ class NotesProvider with ChangeNotifier {
     _selectedTag = tag;
     final allNotes = await _databaseService.getNotes();
     _notes = allNotes.where((note) => note.tags.contains(tag)).toList();
+    _extractAllTags();
     notifyListeners();
   }
 
@@ -86,5 +87,14 @@ class NotesProvider with ChangeNotifier {
 
   Future<void> debugDatabase() async {
     await _databaseService.debugDatabase();
+  }
+
+  void filterNotesByTags(List<String> tags) {
+    if (tags.isEmpty) {
+      fetchNotes();
+      return;
+    }
+    _notes = _notes.where((note) => note.tags.any((tag) => tags.contains(tag))).toList();
+    notifyListeners();
   }
 } 

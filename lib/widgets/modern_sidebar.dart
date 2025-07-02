@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
 
-class ModernSidebar extends StatelessWidget {
-  final Function(String?) onTagSelected;
+class ModernSidebar extends StatefulWidget {
+  final Function(List<String>) onTagsSelected;
 
-  const ModernSidebar({Key? key, required this.onTagSelected}) : super(key: key);
+  const ModernSidebar({Key? key, required this.onTagsSelected}) : super(key: key);
+
+  @override
+  State<ModernSidebar> createState() => _ModernSidebarState();
+}
+
+class _ModernSidebarState extends State<ModernSidebar> {
+  List<String> _selectedTags = [];
 
   @override
   Widget build(BuildContext context) {
@@ -37,10 +44,13 @@ class ModernSidebar extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.home_outlined),
               title: const Text('Toutes les notes'),
-              selected: notesProvider.selectedTag == null,
+              selected: _selectedTags.isEmpty,
               onTap: () {
-                notesProvider.clearTagFilter();
-                onTagSelected(null);
+                setState(() {
+                  _selectedTags.clear();
+                });
+                notesProvider.fetchNotes();
+                widget.onTagsSelected(_selectedTags);
               },
             ),
             ListTile(
@@ -67,14 +77,25 @@ class ModernSidebar extends StatelessWidget {
                 itemCount: notesProvider.allTags.length,
                 itemBuilder: (context, index) {
                   final tag = notesProvider.allTags[index];
-                  return ListTile(
-                    leading: const Icon(Icons.tag, size: 16),
+                  return CheckboxListTile(
+                    value: _selectedTags.contains(tag),
                     title: Text(tag),
-                    selected: notesProvider.selectedTag == tag,
+                    controlAffinity: ListTileControlAffinity.leading,
                     dense: true,
-                    onTap: () {
-                      notesProvider.fetchNotesByTag(tag);
-                      onTagSelected(tag);
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          _selectedTags.add(tag);
+                        } else {
+                          _selectedTags.remove(tag);
+                        }
+                      });
+                      if (_selectedTags.isEmpty) {
+                        notesProvider.fetchNotes();
+                      } else {
+                        notesProvider.filterNotesByTags(_selectedTags);
+                      }
+                      widget.onTagsSelected(_selectedTags);
                     },
                   );
                 },

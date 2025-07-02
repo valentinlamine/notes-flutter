@@ -32,7 +32,9 @@ class Note {
       id: map['id'],
       title: map['title'],
       content: map['content'],
-      tags: map['tags']?.split(',').where((tag) => tag.isNotEmpty).toList() ?? [],
+      tags: map['tags'] != null && map['tags'] is String
+          ? (map['tags'] as String).split(',').where((tag) => tag.trim().isNotEmpty).map((tag) => tag.trim()).toList()
+          : <String>[],
       createdAt: DateTime.parse(map['created_at']),
       updatedAt: DateTime.parse(map['updated_at']),
     );
