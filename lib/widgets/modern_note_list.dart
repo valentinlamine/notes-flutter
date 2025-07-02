@@ -19,40 +19,46 @@ class ModernNoteList extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<NotesProvider>(
       builder: (context, notesProvider, child) {
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Notes', style: Theme.of(context).textTheme.titleMedium),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: onNewNote,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: notesProvider.notes.length,
-                itemBuilder: (context, index) {
-                  final note = notesProvider.notes[index];
-                  return ListTile(
-                    title: Text(note.title),
-                    subtitle: Text(
-                      note.content,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        final theme = Theme.of(context);
+        return Container(
+          color: theme.brightness == Brightness.dark
+              ? const Color(0xFF23242A)
+              : const Color(0xFFF3F4F7),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Notes', style: Theme.of(context).textTheme.titleMedium),
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      onPressed: onNewNote,
                     ),
-                    selected: selectedNote?.id == note.id,
-                    onTap: () => onNoteSelected(note),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
-          ],
+              Expanded(
+                child: ListView.builder(
+                  itemCount: notesProvider.notes.length,
+                  itemBuilder: (context, index) {
+                    final note = notesProvider.notes[index];
+                    return ListTile(
+                      title: Text(note.title),
+                      subtitle: Text(
+                        note.content,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      selected: selectedNote?.id == note.id,
+                      onTap: () => onNoteSelected(note),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

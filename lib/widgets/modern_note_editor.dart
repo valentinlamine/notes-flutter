@@ -42,23 +42,22 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
   }
 
   @override
-  void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
-    _tagInputController.dispose();
-    super.dispose();
-  }
-
-  @override
   void didUpdateWidget(covariant ModernNoteEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Si on passe d'une note à une autre ou d'une note à nouvelle note, on réinitialise les champs
     if (widget.note?.id != oldWidget.note?.id || widget.isNewNote != oldWidget.isNewNote) {
       _titleController.text = widget.note?.title ?? '';
       _contentController.text = widget.note?.content ?? '';
       _tags = List<String>.from(widget.note?.tags ?? []);
       _tagInputController.clear();
     }
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    _tagInputController.dispose();
+    super.dispose();
   }
 
   void _addTag(String tag) {
@@ -82,14 +81,12 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     final tags = List<String>.from(_tags);
-
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Le titre ne peut pas être vide')),
       );
       return;
     }
-
     if (widget.isNewNote) {
       final note = Note(
         title: title,
@@ -97,7 +94,8 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
         tags: tags,
       );
       await notesProvider.addNote(note);
-      widget.onNoteSaved(note);
+      // Ne pas rappeler onNoteSaved ici pour éviter de réinitialiser le champ de titre en cours de frappe
+      // L'utilisateur reste en édition sur la nouvelle note
     } else if (widget.note != null) {
       final updatedNote = Note(
         id: widget.note!.id,
@@ -148,153 +146,262 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: Colors.grey.shade400, width: 1.2),
-    );
-    final focusBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 2),
-    );
-    final fillColor = Theme.of(context).brightness == Brightness.dark
-        ? Colors.grey[900]
-        : Colors.grey[100];
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _titleController,
-            decoration: InputDecoration(
-              labelText: 'Titre',
-              filled: true,
-              fillColor: fillColor,
-              border: border,
-              focusedBorder: focusBorder,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          // Header sobre et unifié
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            decoration: BoxDecoration(
+              color: theme.brightness == Brightness.dark
+                  ? const Color(0xFF23242A)
+                  : const Color(0xFFF3F4F7),
+              borderRadius: BorderRadius.circular(12),
             ),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          const SizedBox(height: 8),
-          // Tag input chips
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 0,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                ..._tags.map((tag) => Chip(
-                      label: Text(tag),
-                      onDeleted: () => _removeTag(tag),
-                      backgroundColor: Colors.deepPurple.shade50,
-                      labelStyle: const TextStyle(fontSize: 13),
-                    )),
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: _tagInputController,
-                    decoration: InputDecoration(
-                      hintText: 'Ajouter un tag',
-                      border: InputBorder.none,
-                      filled: true,
-                      fillColor: fillColor,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                // Titre flottant, padding généreux
+                Flexible(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    child: TextField(
+                      controller: _titleController,
+                      decoration: InputDecoration(
+                        hintText: 'Titre',
+                        filled: true,
+                        fillColor: theme.brightness == Brightness.dark
+                            ? const Color(0xFF23242A)
+                            : Colors.white,
+                        border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                      ),
+                      maxLines: 1,
+                      onChanged: (value) {
+                        if (value.trim().isNotEmpty) {
+                          _saveNote(context);
+                        }
+                      },
                     ),
-                    onSubmitted: _addTag,
-                    onEditingComplete: () {
-                      _addTag(_tagInputController.text);
-                    },
                   ),
+                ),
+                // Tags sobres
+                Flexible(
+                  flex: 5,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ..._tags.asMap().entries.map((entry) {
+                          final tag = entry.value;
+                          final pastelColors = [
+                            Colors.blue.shade100,
+                            Colors.green.shade100,
+                            Colors.orange.shade100,
+                            Colors.purple.shade100,
+                            Colors.pink.shade100,
+                            Colors.teal.shade100,
+                            Colors.amber.shade100,
+                          ];
+                          final pastelColorsDark = [
+                            Colors.blue.shade700,
+                            Colors.green.shade700,
+                            Colors.orange.shade700,
+                            Colors.purple.shade700,
+                            Colors.pink.shade700,
+                            Colors.teal.shade700,
+                            Colors.amber.shade700,
+                          ];
+                          final color = theme.brightness == Brightness.dark
+                              ? pastelColorsDark[entry.key % pastelColorsDark.length]
+                              : pastelColors[entry.key % pastelColors.length];
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Chip(
+                              label: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                child: Text(
+                                  tag,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: theme.brightness == Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              onDeleted: () {
+                                _removeTag(tag);
+                                if (_titleController.text.trim().isNotEmpty) {
+                                  _saveNote(context);
+                                }
+                              },
+                              backgroundColor: color,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              side: BorderSide.none,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity(horizontal: -2, vertical: -2),
+                            ),
+                          );
+                        }),
+                        // Champ d'ajout de tag plus visible
+                        Container(
+                          width: 70,
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: theme.brightness == Brightness.dark
+                                ? const Color(0xFF23242A)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: TextField(
+                            controller: _tagInputController,
+                            decoration: InputDecoration(
+                              hintText: 'Tag',
+                              filled: true,
+                              fillColor: theme.brightness == Brightness.dark
+                                  ? const Color(0xFF23242A)
+                                  : Colors.white,
+                              border: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                            onSubmitted: (value) {
+                              _addTag(value);
+                              if (_titleController.text.trim().isNotEmpty) {
+                                _saveNote(context);
+                              }
+                            },
+                            onEditingComplete: () {
+                              _addTag(_tagInputController.text);
+                              if (_titleController.text.trim().isNotEmpty) {
+                                _saveNote(context);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Actions
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: IconButton(
+                        icon: const Icon(Icons.upload_file, size: 20),
+                        onPressed: () => _exportNote(context),
+                        tooltip: 'Exporter',
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: widget.onClose,
+                        tooltip: 'Fermer',
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: IconButton(
+                        icon: Icon(_previewMode ? Icons.edit : Icons.preview, size: 20),
+                        onPressed: () {
+                          setState(() {
+                            _previewMode = !_previewMode;
+                          });
+                        },
+                        tooltip: _previewMode ? 'Mode édition' : 'Aperçu Markdown',
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                    if (!widget.isNewNote && widget.note != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: IconButton(
+                          icon: const Icon(Icons.delete, size: 20),
+                          onPressed: () async {
+                            final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                            if (widget.note != null && widget.note!.id != null) {
+                              await notesProvider.deleteNote(widget.note!.id!);
+                              widget.onNoteDeleted();
+                            }
+                          },
+                          tooltip: 'Supprimer',
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
+          // Contenu
           Expanded(
-            child: _previewMode
-                ? Card(
-                    color: fillColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Markdown(
-                        data: _contentController.text,
-                        selectable: true,
-                        styleSheet: MarkdownStyleSheet(
-                          p: TextStyle(
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                            fontSize: 15,
-                          ),
-                        ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+              child: _previewMode
+                  ? Markdown(
+                      data: _contentController.text,
+                      selectable: true,
+                      styleSheet: MarkdownStyleSheet(
+                        p: theme.textTheme.bodyMedium?.copyWith(fontSize: 14),
+                        code: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                        h1: theme.textTheme.titleMedium?.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                        h2: theme.textTheme.titleMedium?.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
+                        h3: theme.textTheme.titleMedium?.copyWith(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
+                    )
+                  : TextField(
+                      controller: _contentController,
+                      maxLines: null,
+                      expands: true,
+                      textAlignVertical: TextAlignVertical.top,
+                      decoration: InputDecoration(
+                        hintText: 'Contenu de la note...',
+                        filled: true,
+                        fillColor: theme.brightness == Brightness.dark
+                            ? const Color(0xFF23242A)
+                            : const Color(0xFFF8F9FB),
+                        border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.only(top: 12, left: 12, right: 12, bottom: 0),
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.35),
+                      onChanged: (_) {
+                        if (_titleController.text.trim().isNotEmpty) {
+                          _saveNote(context);
+                        }
+                      },
                     ),
-                  )
-                : TextField(
-                    controller: _contentController,
-                    maxLines: null,
-                    expands: true,
-                    decoration: InputDecoration(
-                      labelText: 'Contenu',
-                      alignLabelWithHint: true,
-                      filled: true,
-                      fillColor: fillColor,
-                      border: border,
-                      focusedBorder: focusBorder,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
-                    style: const TextStyle(fontSize: 15),
-                  ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.upload_file),
-                onPressed: () => _exportNote(context),
-                tooltip: 'Exporter la note',
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: widget.onClose,
-                tooltip: 'Fermer',
-              ),
-              IconButton(
-                icon: Icon(_previewMode ? Icons.edit : Icons.preview),
-                onPressed: () {
-                  setState(() {
-                    _previewMode = !_previewMode;
-                  });
-                },
-                tooltip: _previewMode ? 'Mode édition' : 'Aperçu Markdown',
-              ),
-              if (!widget.isNewNote && widget.note != null)
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () async {
-                    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                    if (widget.note != null && widget.note!.id != null) {
-                      await notesProvider.deleteNote(widget.note!.id!);
-                      widget.onNoteDeleted();
-                    }
-                  },
-                  tooltip: 'Supprimer la note',
-                ),
-              ElevatedButton(
-                onPressed: () => _saveNote(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple.shade400,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                child: const Text('Enregistrer'),
-              ),
-            ],
-          )
         ],
       ),
     );

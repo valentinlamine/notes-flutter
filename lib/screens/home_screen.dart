@@ -24,18 +24,47 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _onNewNote() {
-    setState(() {
-      _selectedNote = null;
-      _isEditing = true;
-    });
-  }
-
-  void _onCloseEditor() {
-    setState(() {
-      _selectedNote = null;
-      _isEditing = false;
-    });
+  Future<void> _onNewNote() async {
+    final titleController = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouveau titre de note'),
+        content: TextField(
+          controller: titleController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Titre de la note',
+          ),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              final value = titleController.text.trim();
+              if (value.isNotEmpty) {
+                Navigator.of(context).pop(value);
+              }
+            },
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.isNotEmpty) {
+      final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+      final note = Note(title: result, content: '', tags: []);
+      await notesProvider.addNote(note);
+      // Sélectionner la note nouvellement créée (en haut de la liste)
+      setState(() {
+        _selectedNote = notesProvider.notes.first;
+        _isEditing = false;
+      });
+    }
   }
 
   void _onNoteSaved(Note note) {
@@ -52,43 +81,44 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _onCloseEditor() {
+    setState(() {
+      _selectedNote = null;
+      _isEditing = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar - 250px fixe
+          // Sidebar
           Container(
-            width: 250,
+            width: 220,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              color: theme.colorScheme.surface,
               border: Border(
-                right: BorderSide(
-                  color: Theme.of(context).dividerColor,
-                  width: 1,
-                ),
+                right: BorderSide(color: theme.dividerColor, width: 1),
               ),
             ),
             child: ModernSidebar(
               onTagsSelected: (tags) {
                 setState(() {
-                  // La logique de filtrage est déjà gérée dans le provider
-                  // On peut éventuellement réinitialiser la sélection de note ici si besoin
                   _selectedNote = null;
                   _isEditing = false;
                 });
               },
             ),
           ),
-          // Liste des notes - 300px fixe
+          // Liste des notes
           Container(
             width: 300,
             decoration: BoxDecoration(
+              color: theme.cardColor,
               border: Border(
-                right: BorderSide(
-                  color: Theme.of(context).dividerColor,
-                  width: 1,
-                ),
+                right: BorderSide(color: theme.dividerColor, width: 1),
               ),
             ),
             child: ModernNoteList(
@@ -97,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onNewNote: _onNewNote,
             ),
           ),
-          // Éditeur/Prévisualisation - Flexible
+          // Éditeur/Prévisualisation
           Expanded(
             child: _selectedNote != null || _isEditing
                 ? ModernNoteEditor(
@@ -107,22 +137,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     onNoteDeleted: _onNoteDeleted,
                     onClose: _onCloseEditor,
                   )
-                : const Center(
+                : Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          Icons.note_add_outlined,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16),
+                        Icon(Icons.note_add_outlined, size: 64, color: theme.colorScheme.secondary),
+                        const SizedBox(height: 16),
                         Text(
                           'Sélectionnez une note ou créez-en une nouvelle',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.secondary),
                         ),
                       ],
                     ),
