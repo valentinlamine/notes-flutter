@@ -65,6 +65,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
       setState(() {
         _tags.add(cleanTag);
       });
+      _saveNote(context);
     }
     _tagInputController.clear();
   }
@@ -73,6 +74,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     setState(() {
       _tags.remove(tag);
     });
+    _saveNote(context);
   }
 
   void _saveNote(BuildContext context) async {

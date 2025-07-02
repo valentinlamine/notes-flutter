@@ -16,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Note? _selectedNote;
   bool _isEditing = false;
+  List<String> _selectedTags = [];
 
   void _onNoteSelected(Note note) {
     setState(() {
@@ -103,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 setState(() {
                   _selectedNote = null;
                   _isEditing = false;
+                  _selectedTags = tags;
                 });
               },
             ),
@@ -118,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Consumer<NotesProvider>(
               builder: (context, notesProvider, child) => ModernNoteList(
-                notes: notesProvider.notes,
+                notes: notesProvider.notesForTags(_selectedTags),
                 selectedNote: notesProvider.selectedNote,
                 onNoteSelected: notesProvider.selectNote,
                 onNewNote: _onNewNote,

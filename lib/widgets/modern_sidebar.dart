@@ -119,8 +119,6 @@ class _ModernSidebarState extends State<ModernSidebar> {
                         });
                         if (_selectedTags.isEmpty) {
                           notesProvider.loadNotes();
-                        } else {
-                          notesProvider.filterNotesByTags(_selectedTags);
                         }
                         widget.onTagsSelected(_selectedTags);
                       },
