@@ -318,15 +318,6 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: widget.onClose,
-                        tooltip: 'Fermer',
-                        padding: const EdgeInsets.all(8),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: IconButton(
                         icon: Icon(_previewMode ? Icons.edit : Icons.preview, size: 20),
                         onPressed: () {
                           setState(() {
@@ -353,6 +344,16 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                           padding: const EdgeInsets.all(8),
                         ),
                       ),
+                    // Bouton Fermer à droite
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: widget.onClose,
+                        tooltip: 'Fermer',
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
                   ],
                 ),
               ],
