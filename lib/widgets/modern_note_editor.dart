@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
 import '../models/note.dart';
+import '../services/export_service.dart';
 
 class ModernNoteEditor extends StatefulWidget {
   final Note? note;
@@ -111,15 +112,68 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     }
   }
 
+  Future<void> _exportNote(BuildContext context) async {
+    final exportService = ExportService();
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    if (title.isEmpty || content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le titre et le contenu ne peuvent pas être vides')),
+      );
+      return;
+    }
+    final format = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Exporter la note'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'txt'),
+            child: const Text('Format texte (.txt)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'md'),
+            child: const Text('Format Markdown (.md)'),
+          ),
+        ],
+      ),
+    );
+    if (format != null) {
+      await exportService.exportToFile(title, content, format);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Note exportée au format .$format')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: Colors.grey.shade400, width: 1.2),
+    );
+    final focusBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(color: Colors.deepPurple.shade200, width: 2),
+    );
+    final fillColor = Theme.of(context).brightness == Brightness.dark
+        ? Colors.grey[900]
+        : Colors.grey[100];
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
           TextField(
             controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Titre'),
+            decoration: InputDecoration(
+              labelText: 'Titre',
+              filled: true,
+              fillColor: fillColor,
+              border: border,
+              focusedBorder: focusBorder,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           const SizedBox(height: 8),
           // Tag input chips
@@ -132,14 +186,19 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                 ..._tags.map((tag) => Chip(
                       label: Text(tag),
                       onDeleted: () => _removeTag(tag),
+                      backgroundColor: Colors.deepPurple.shade50,
+                      labelStyle: const TextStyle(fontSize: 13),
                     )),
                 SizedBox(
                   width: 120,
                   child: TextField(
                     controller: _tagInputController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Ajouter un tag',
                       border: InputBorder.none,
+                      filled: true,
+                      fillColor: fillColor,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     ),
                     onSubmitted: _addTag,
                     onEditingComplete: () {
@@ -154,11 +213,20 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
           Expanded(
             child: _previewMode
                 ? Card(
+                    color: fillColor,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Markdown(
                         data: _contentController.text,
                         selectable: true,
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
                     ),
                   )
@@ -166,16 +234,27 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                     controller: _contentController,
                     maxLines: null,
                     expands: true,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Contenu',
                       alignLabelWithHint: true,
+                      filled: true,
+                      fillColor: fillColor,
+                      border: border,
+                      focusedBorder: focusBorder,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
+                    style: const TextStyle(fontSize: 15),
                   ),
           ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              IconButton(
+                icon: const Icon(Icons.upload_file),
+                onPressed: () => _exportNote(context),
+                tooltip: 'Exporter la note',
+              ),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: widget.onClose,
@@ -204,6 +283,14 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                 ),
               ElevatedButton(
                 onPressed: () => _saveNote(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple.shade400,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 child: const Text('Enregistrer'),
               ),
             ],

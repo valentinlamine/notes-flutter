@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import '../models/note.dart';
+import 'package:file_selector/file_selector.dart';
 
 class ModernSidebar extends StatefulWidget {
   final Function(List<String>) onTagsSelected;
@@ -59,6 +63,31 @@ class _ModernSidebarState extends State<ModernSidebar> {
               onTap: () async {
                 await notesProvider.debugDatabase();
                 notesProvider.debugPrintNotes();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.file_upload),
+              title: const Text('Importer une note'),
+              onTap: () async {
+                // Ouvre un dialogue natif pour sélectionner un fichier .txt ou .md
+                final typeGroup = XTypeGroup(
+                  label: 'Notes',
+                  extensions: ['txt', 'md'],
+                );
+                final file = await openFile(acceptedTypeGroups: [typeGroup]);
+                if (file == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Aucun fichier sélectionné.')),
+                  );
+                  return;
+                }
+                final content = await file.readAsString();
+                final title = file.name.split('.').first;
+                final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                await notesProvider.addNote(Note(title: title, content: content));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Note importée depuis ${file.name}')),
+                );
               },
             ),
             const Padding(
