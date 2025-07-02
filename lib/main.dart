@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'services/notes_provider.dart';
 import 'config/app_theme.dart';
 
@@ -21,7 +22,15 @@ class MyApp extends StatelessWidget {
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
         debugShowCheckedModeBanner: false,
-        home: const HomeScreen(),
+        home: Consumer<NotesProvider>(
+          builder: (context, notesProvider, _) {
+            if (notesProvider.notesDirectory == null) {
+              return const WelcomeScreen();
+            } else {
+              return const HomeScreen();
+            }
+          },
+        ),
       ),
     );
   }

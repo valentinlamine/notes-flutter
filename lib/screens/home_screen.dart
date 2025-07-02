@@ -57,13 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result != null && result.isNotEmpty) {
       final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-      final note = Note(title: result, content: '', tags: []);
-      await notesProvider.addNote(note);
-      // Sélectionner la note nouvellement créée (en haut de la liste)
-      setState(() {
-        _selectedNote = notesProvider.notes.first;
-        _isEditing = false;
-      });
+      await notesProvider.createNote(result);
+      setState(() {}); // Pour rafraîchir la sélection
     }
   }
 
@@ -121,35 +116,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 right: BorderSide(color: theme.dividerColor, width: 1),
               ),
             ),
-            child: ModernNoteList(
-              selectedNote: _selectedNote,
-              onNoteSelected: _onNoteSelected,
-              onNewNote: _onNewNote,
+            child: Consumer<NotesProvider>(
+              builder: (context, notesProvider, child) => ModernNoteList(
+                notes: notesProvider.notes,
+                selectedNote: notesProvider.selectedNote,
+                onNoteSelected: notesProvider.selectNote,
+                onNewNote: _onNewNote,
+              ),
             ),
           ),
           // Éditeur/Prévisualisation
           Expanded(
-            child: _selectedNote != null || _isEditing
-                ? ModernNoteEditor(
-                    note: _selectedNote,
-                    isNewNote: _selectedNote == null && _isEditing,
-                    onNoteSaved: _onNoteSaved,
-                    onNoteDeleted: _onNoteDeleted,
-                    onClose: _onCloseEditor,
-                  )
-                : Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.note_add_outlined, size: 64, color: theme.colorScheme.secondary),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Sélectionnez une note ou créez-en une nouvelle',
-                          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.secondary),
-                        ),
-                      ],
+            child: Consumer<NotesProvider>(
+              builder: (context, notesProvider, child) => notesProvider.selectedNote != null
+                  ? ModernNoteEditor(
+                      note: notesProvider.selectedNote!,
+                      onNoteSaved: (note) => notesProvider.saveNote(note),
+                      onNoteDeleted: () => notesProvider.deleteNote(notesProvider.selectedNote!),
+                      onClose: () => notesProvider.selectNote(null),
+                    )
+                  : Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.note_add_outlined, size: 64, color: theme.colorScheme.secondary),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Sélectionnez une note ou créez-en une nouvelle',
+                            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.secondary),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+            ),
           ),
         ],
       ),

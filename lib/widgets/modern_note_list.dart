@@ -4,12 +4,14 @@ import '../services/notes_provider.dart';
 import '../models/note.dart';
 
 class ModernNoteList extends StatelessWidget {
+  final List<Note> notes;
   final Note? selectedNote;
   final Function(Note) onNoteSelected;
   final VoidCallback onNewNote;
 
   const ModernNoteList({
     Key? key,
+    required this.notes,
     required this.selectedNote,
     required this.onNoteSelected,
     required this.onNewNote,
@@ -17,50 +19,40 @@ class ModernNoteList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<NotesProvider>(
-      builder: (context, notesProvider, child) {
-        final theme = Theme.of(context);
-        return Container(
-          color: theme.brightness == Brightness.dark
-              ? const Color(0xFF23242A)
-              : const Color(0xFFF3F4F7),
-          child: Column(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Notes', style: Theme.of(context).textTheme.titleMedium),
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: onNewNote,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: notesProvider.notes.length,
-                  itemBuilder: (context, index) {
-                    final note = notesProvider.notes[index];
-                    return ListTile(
-                      title: Text(note.title),
-                      subtitle: Text(
-                        note.content,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      selected: selectedNote?.id == note.id,
-                      onTap: () => onNoteSelected(note),
-                    );
-                  },
-                ),
+              Text('Notes', style: Theme.of(context).textTheme.titleMedium),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: onNewNote,
               ),
             ],
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: notes.length,
+            itemBuilder: (context, index) {
+              final note = notes[index];
+              return ListTile(
+                title: Text(note.title),
+                subtitle: Text(
+                  note.content,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                selected: selectedNote?.filePath == note.filePath,
+                onTap: () => onNoteSelected(note),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 } 

@@ -58,16 +58,8 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   setState(() {
                     _selectedTags.clear();
                   });
-                  notesProvider.fetchNotes();
+                  notesProvider.loadNotes();
                   widget.onTagsSelected(_selectedTags);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.bug_report),
-                title: const Text('Debug DB'),
-                onTap: () async {
-                  await notesProvider.debugDatabase();
-                  notesProvider.debugPrintNotes();
                 },
               ),
               ListTile(
@@ -89,7 +81,8 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   final content = await file.readAsString();
                   final title = file.name.split('.').first;
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                  await notesProvider.addNote(Note(title: title, content: content));
+                  final filePath = notesProvider.notesDirectory != null ? '${notesProvider.notesDirectory}/$title.md' : '';
+                  await notesProvider.createNote(title);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Note importée depuis ${file.name}')),
                   );
@@ -125,7 +118,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
                           }
                         });
                         if (_selectedTags.isEmpty) {
-                          notesProvider.fetchNotes();
+                          notesProvider.loadNotes();
                         } else {
                           notesProvider.filterNotesByTags(_selectedTags);
                         }

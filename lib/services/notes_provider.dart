@@ -1,100 +1,127 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_selector/file_selector.dart';
 import '../models/note.dart';
-import 'database_service.dart';
+import 'notes_meta_service.dart';
 
 class NotesProvider with ChangeNotifier {
   List<Note> _notes = [];
   List<String> _allTags = [];
   String? _selectedTag;
+  Note? _selectedNote;
+  String? _notesDirectory;
 
-  final DatabaseService _databaseService = DatabaseService();
+  static const _prefsKey = 'notes_directory_path';
 
   List<Note> get notes => _notes;
   List<String> get allTags => _allTags;
   String? get selectedTag => _selectedTag;
+  Note? get selectedNote => _selectedNote;
+  String? get notesDirectory => _notesDirectory;
 
   NotesProvider() {
-    fetchNotes();
+    _init();
   }
 
-  Future<void> fetchNotes() async {
-    _notes = await _databaseService.getNotes();
-    _extractAllTags();
-    notifyListeners();
-  }
-
-  Future<void> fetchNotesByTag(String tag) async {
-    _selectedTag = tag;
-    final allNotes = await _databaseService.getNotes();
-    _notes = allNotes.where((note) => note.tags.contains(tag)).toList();
-    _extractAllTags();
-    notifyListeners();
-  }
-
-  Future<void> addNote(Note note) async {
-    final id = await _databaseService.insertNote(note);
-    final newNote = Note(
-      id: id,
-      title: note.title,
-      content: note.content,
-      tags: note.tags,
-      createdAt: note.createdAt,
-      updatedAt: note.updatedAt,
-    );
-    _notes.insert(0, newNote);
-    _extractAllTags();
-    notifyListeners();
-  }
-
-  Future<void> updateNote(Note note) async {
-    await _databaseService.updateNote(note);
-    final index = _notes.indexWhere((n) => n.id == note.id);
-    if (index >= 0) {
-      _notes[index] = note;
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _notesDirectory = prefs.getString(_prefsKey);
+    if (_notesDirectory != null) {
+      await loadNotes();
     }
-    _extractAllTags();
     notifyListeners();
   }
 
-  Future<void> deleteNote(int id) async {
-    await _databaseService.deleteNote(id);
-    _notes.removeWhere((note) => note.id == id);
-    _extractAllTags();
-    notifyListeners();
-  }
-
-  void _extractAllTags() {
-    Set<String> uniqueTags = {};
-    for (var note in _notes) {
-      uniqueTags.addAll(note.tags);
+  Future<bool> chooseNotesDirectory() async {
+    print('Ouverture du sélecteur de dossier...');
+    final directory = await getDirectoryPath();
+    print('Résultat getDirectoryPath: $directory');
+    if (directory != null) {
+      _notesDirectory = directory;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKey, directory);
+      await loadNotes();
+      notifyListeners();
+      print('Dossier sélectionné et enregistré: $directory');
+      return true;
+    } else {
+      print('Aucun dossier sélectionné.');
+      return false;
     }
-    _allTags = uniqueTags.toList()..sort();
   }
+
+  Future<void> loadNotes() async {
+    if (_notesDirectory == null) return;
+    final dir = Directory(_notesDirectory!);
+    if (!await dir.exists()) return;
+    final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList();
+    _notes = await Future.wait(files.map((f) => Note.fromFile(f)));
+    _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    await _syncTagsWithMeta();
+    notifyListeners();
+  }
+
+  Future<void> _syncTagsWithMeta() async {
+    if (_notesDirectory == null) return;
+    // On tente de lire les tags du fichier meta
+    final metaTags = await NotesMetaService.readTags(_notesDirectory!);
+    if (metaTags.isNotEmpty) {
+      _allTags = metaTags;
+    } else {
+      // Si le fichier n'existe pas ou est vide, on reconstruit la liste à partir des notes
+      final tagsSet = <String>{};
+      for (final note in _notes) {
+        tagsSet.addAll(note.tags);
+      }
+      _allTags = tagsSet.toList()..sort();
+      await NotesMetaService.writeTags(_notesDirectory!, _allTags);
+    }
+  }
+
+  void _extractAllTags() {}
 
   void clearTagFilter() {
     _selectedTag = null;
-    fetchNotes();
   }
 
-  void debugPrintNotes() {
-    print('=== DEBUG NOTES ===');
-    for (var note in _notes) {
-      print('Note: ${note.title}, Tags: ${note.tags}');
-    }
-    print('All tags: $_allTags');
-    print('Selected tag: $_selectedTag');
+  void filterNotesByTags(List<String> tags) {}
+
+  Future<void> createNote(String title) async {
+    if (_notesDirectory == null) return;
+    final safeTitle = title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final filePath = '$_notesDirectory/$safeTitle.md';
+    final note = Note(filePath: filePath, title: title, content: '', tags: []);
+    await note.saveToFile();
+    await loadNotes();
+    await _syncTagsWithMeta();
+    selectNote(note);
   }
 
-  Future<void> debugDatabase() async {
-    await _databaseService.debugDatabase();
+  Future<void> saveNote(Note note) async {
+    await note.saveToFile();
+    await loadNotes();
+    await _syncTagsWithMeta();
+    selectNote(note);
   }
 
-  void filterNotesByTags(List<String> tags) {
-    if (tags.isEmpty) {
-      fetchNotes();
-      return;
-    }
-    _notes = _notes.where((note) => note.tags.any((tag) => tags.contains(tag))).toList();
+  void selectNote(Note? note) {
+    _selectedNote = note;
     notifyListeners();
+  }
+
+  // Pour ouvrir le fichier dans le Finder/Explorateur
+  Future<void> revealInFinder(Note note) async {
+    final file = File(note.filePath);
+    if (await file.exists()) {
+      await openFile(initialDirectory: file.parent.path);
+    }
+  }
+
+  Future<void> deleteNote(Note note) async {
+    await note.deleteFile();
+    await loadNotes();
+    await _syncTagsWithMeta();
+    selectNote(null);
   }
 } 

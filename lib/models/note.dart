@@ -1,5 +1,7 @@
+import 'dart:io';
+
 class Note {
-  final int? id;
+  String filePath;
   String title;
   String content;
   List<String> tags;
@@ -7,7 +9,7 @@ class Note {
   DateTime updatedAt;
 
   Note({
-    this.id,
+    required this.filePath,
     required this.title,
     required this.content,
     this.tags = const [],
@@ -16,27 +18,29 @@ class Note {
   })  : this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title,
-      'content': content,
-      'tags': tags.join(','),
-      'created_at': createdAt.toIso8601String(),
-      'updated_at': updatedAt.toIso8601String(),
-    };
+  static Future<Note> fromFile(File file) async {
+    final content = await file.readAsString();
+    final title = file.uri.pathSegments.last.replaceAll('.md', '');
+    // Optionnel : extraire tags depuis le contenu ou le nom du fichier
+    return Note(
+      filePath: file.path,
+      title: title,
+      content: content,
+      tags: [],
+      createdAt: await file.lastModified(),
+      updatedAt: await file.lastModified(),
+    );
   }
 
-  factory Note.fromMap(Map<String, dynamic> map) {
-    return Note(
-      id: map['id'],
-      title: map['title'],
-      content: map['content'],
-      tags: map['tags'] != null && map['tags'] is String
-          ? (map['tags'] as String).split(',').where((tag) => tag.trim().isNotEmpty).map((tag) => tag.trim()).toList()
-          : <String>[],
-      createdAt: DateTime.parse(map['created_at']),
-      updatedAt: DateTime.parse(map['updated_at']),
-    );
+  Future<void> saveToFile() async {
+    final file = File(filePath);
+    await file.writeAsString(content);
+  }
+
+  Future<void> deleteFile() async {
+    final file = File(filePath);
+    if (await file.exists()) {
+      await file.delete();
+    }
   }
 } 

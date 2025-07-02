@@ -3,7 +3,6 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
 import '../models/note.dart';
-import '../services/export_service.dart';
 
 class ModernNoteEditor extends StatefulWidget {
   final Note? note;
@@ -44,7 +43,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
   @override
   void didUpdateWidget(covariant ModernNoteEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.note?.id != oldWidget.note?.id || widget.isNewNote != oldWidget.isNewNote) {
+    if (widget.note?.filePath != oldWidget.note?.filePath) {
       _titleController.text = widget.note?.title ?? '';
       _contentController.text = widget.note?.content ?? '';
       _tags = List<String>.from(widget.note?.tags ?? []);
@@ -76,7 +75,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     });
   }
 
-  Future<void> _saveNote(BuildContext context) async {
+  void _saveNote(BuildContext context) async {
     final notesProvider = Provider.of<NotesProvider>(context, listen: false);
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
@@ -87,61 +86,15 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
       );
       return;
     }
-    if (widget.isNewNote) {
-      final note = Note(
-        title: title,
-        content: content,
-        tags: tags,
-      );
-      await notesProvider.addNote(note);
-      // Ne pas rappeler onNoteSaved ici pour éviter de réinitialiser le champ de titre en cours de frappe
-      // L'utilisateur reste en édition sur la nouvelle note
-    } else if (widget.note != null) {
-      final updatedNote = Note(
-        id: widget.note!.id,
-        title: title,
-        content: content,
-        tags: tags,
-        createdAt: widget.note!.createdAt,
-        updatedAt: DateTime.now(),
-      );
-      await notesProvider.updateNote(updatedNote);
-      widget.onNoteSaved(updatedNote);
-    }
-  }
-
-  Future<void> _exportNote(BuildContext context) async {
-    final exportService = ExportService();
-    final title = _titleController.text.trim();
-    final content = _contentController.text.trim();
-    if (title.isEmpty || content.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le titre et le contenu ne peuvent pas être vides')),
-      );
-      return;
-    }
-    final format = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: const Text('Exporter la note'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'txt'),
-            child: const Text('Format texte (.txt)'),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, 'md'),
-            child: const Text('Format Markdown (.md)'),
-          ),
-        ],
-      ),
+    final updatedNote = Note(
+      filePath: widget.note!.filePath,
+      title: title,
+      content: content,
+      tags: tags,
+      createdAt: widget.note!.createdAt,
+      updatedAt: DateTime.now(),
     );
-    if (format != null) {
-      await exportService.exportToFile(title, content, format);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Note exportée au format .$format')),
-      );
-    }
+    widget.onNoteSaved(updatedNote);
   }
 
   @override
@@ -309,9 +262,12 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: IconButton(
-                        icon: const Icon(Icons.upload_file, size: 20),
-                        onPressed: () => _exportNote(context),
-                        tooltip: 'Exporter',
+                        icon: const Icon(Icons.folder_open, size: 20),
+                        onPressed: () {
+                          final provider = Provider.of<NotesProvider>(context, listen: false);
+                          provider.revealInFinder(widget.note!);
+                        },
+                        tooltip: 'Ouvrir dans le Finder',
                         padding: const EdgeInsets.all(8),
                       ),
                     ),
@@ -335,8 +291,8 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                           icon: const Icon(Icons.delete, size: 20),
                           onPressed: () async {
                             final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                            if (widget.note != null && widget.note!.id != null) {
-                              await notesProvider.deleteNote(widget.note!.id!);
+                            if (widget.note != null) {
+                              await notesProvider.deleteNote(widget.note!);
                               widget.onNoteDeleted();
                             }
                           },

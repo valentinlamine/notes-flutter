@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Ce dossier sera utilisé pour stocker vos notes Markdown.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Ce dossier sera utilisé pour stocker vos notes Markdown.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Ce dossier sera utilisé pour stocker vos notes Markdown.</string>
 </dict>
 </plist>
