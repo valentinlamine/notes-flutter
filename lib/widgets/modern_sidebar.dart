@@ -68,7 +68,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
                 },
               ),
               SidebarActionTile(
-                icon: Icons.file_upload,
+                icon: Icons.upload_file,
                 text: 'Importer une note',
                 onTap: () async {
                   // Ouvre un dialogue natif pour sélectionner un fichier .txt ou .md
@@ -99,23 +99,20 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   }
                 },
               ),
-              ListTile(
-                leading: _syncing
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync),
-                title: const Text('Synchronisation'),
-                enabled: !_syncing,
-                onTap: _syncing
-                    ? null
-                    : () async {
-                        setState(() => _syncing = true);
-                        print('[DEBUG] Bouton synchro cliqué');
-                        final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                        // await notesProvider.forceSync(context: context); // désactivé en local
-                        print('[DEBUG] Synchro terminée');
-                        await Future.delayed(const Duration(milliseconds: 500));
-                        setState(() => _syncing = false);
-                      },
+              SidebarActionTile(
+                icon: _syncing ? null : Icons.sync,
+                text: 'Synchronisation',
+                onTap: () async {
+                  if (_syncing) return;
+                  setState(() => _syncing = true);
+                  print('[DEBUG] Bouton synchro cliqué');
+                  final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                  // await notesProvider.forceSync(context: context); // désactivé en local
+                  print('[DEBUG] Synchro terminée');
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  setState(() => _syncing = false);
+                },
+                enabled: true,
               ),
               SidebarActionTile(
                 icon: Icons.refresh,
