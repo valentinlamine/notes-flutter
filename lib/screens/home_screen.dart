@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (result != null && result.isNotEmpty) {
       final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
       try {
-        await notesProvider.createNote(result);
+        await notesProvider.createNote(result, context: context);
         setState(() {}); // Pour rafraîchir la sélection
       } catch (e) {
         if (context.mounted) {

@@ -19,6 +19,7 @@ class Note {
   SyncStatus syncStatus;
   DateTime? lastSyncedAt;
   bool deleted;
+  String? lastModifiedBy;
 
   Note({
     String? id,
@@ -32,6 +33,7 @@ class Note {
     this.syncStatus = SyncStatus.notSynced,
     this.lastSyncedAt,
     this.deleted = false,
+    this.lastModifiedBy = '',
   })  : this.id = id ?? const Uuid().v4(),
         this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
@@ -44,6 +46,7 @@ class Note {
     DateTime? createdAt;
     DateTime? updatedAt;
     String? id;
+    String? lastModifiedBy;
     if (raw.startsWith('---')) {
       final end = raw.indexOf('---', 3);
       if (end != -1) {
@@ -54,6 +57,7 @@ class Note {
         tags = (yamlMap['tags'] as YamlList?)?.cast<String>() ?? [];
         createdAt = yamlMap['createdAt'] != null ? DateTime.tryParse(yamlMap['createdAt'].toString()) : null;
         updatedAt = yamlMap['updatedAt'] != null ? DateTime.tryParse(yamlMap['updatedAt'].toString()) : null;
+        lastModifiedBy = yamlMap['lastModifiedBy'] as String?;
         content = raw.substring(end + 3).trimLeft();
       }
     }
@@ -65,6 +69,7 @@ class Note {
       tags: tags,
       createdAt: createdAt ?? await file.lastModified(),
       updatedAt: updatedAt ?? await file.lastModified(),
+      lastModifiedBy: lastModifiedBy,
     );
   }
 
@@ -80,6 +85,7 @@ class Note {
     }
     buffer.writeln('createdAt: ${createdAt.toIso8601String()}');
     buffer.writeln('updatedAt: ${DateTime.now().toIso8601String()}');
+    buffer.writeln('lastModifiedBy: $lastModifiedBy');
     buffer.writeln('---');
     buffer.writeln(content.trimLeft());
     await file.writeAsString(buffer.toString());
@@ -106,6 +112,7 @@ class Note {
       syncStatus: SyncStatus.synced,
       lastSyncedAt: DateTime.tryParse(map['updated_at'] ?? ''),
       deleted: map['deleted'] == true,
+      lastModifiedBy: map['lastModifiedBy'] as String? ?? '',
     );
   }
 
@@ -119,6 +126,7 @@ class Note {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'deleted': deleted,
+      'lastModifiedBy': lastModifiedBy,
     };
     return map;
   }

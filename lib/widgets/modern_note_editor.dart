@@ -105,12 +105,12 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     );
     if (title != oldTitle) {
       try {
-        await notesProvider.saveNote(updatedNote, newTitle: title);
+        await notesProvider.saveNote(updatedNote, newTitle: title, context: context);
       } catch (e) {
         showAppSnackBar(context, 'Erreur lors du renommage du fichier : $e');
       }
     } else {
-      await notesProvider.saveNote(updatedNote);
+      await notesProvider.saveNote(updatedNote, context: context);
     }
   }
 
@@ -212,7 +212,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                   onDelete: () async {
                     final notesProvider = Provider.of<NotesProvider>(context, listen: false);
                     if (widget.note != null) {
-                      await notesProvider.deleteNote(widget.note!);
+                      await notesProvider.deleteNote(widget.note!, context: context);
                       widget.onNoteDeleted();
                     }
                   },

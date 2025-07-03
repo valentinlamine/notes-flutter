@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'notes_sync_service.dart'; // Pour la synchro cloud
 import 'dart:async';
 import 'package:uuid/uuid.dart';
+import '../screens/welcome_screen.dart';
 
 class NotesProvider with ChangeNotifier {
   List<Note> _notes = [];
@@ -21,6 +22,7 @@ class NotesProvider with ChangeNotifier {
   Note? _selectedNote;
   String? _notesDirectory;
   bool hasDirectoryPermission = true;
+  String? _deviceId;
 
   static const _prefsKey = 'notes_directory_path';
 
@@ -40,6 +42,11 @@ class NotesProvider with ChangeNotifier {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedDir = prefs.getString(_prefsKey);
+    _deviceId = prefs.getString('device_id');
+    if (_deviceId == null) {
+      _deviceId = const Uuid().v4();
+      await prefs.setString('device_id', _deviceId!);
+    }
     if (savedDir != null && Directory(savedDir).existsSync()) {
       _notesDirectory = savedDir;
       await loadNotes();
@@ -128,7 +135,7 @@ class NotesProvider with ChangeNotifier {
     _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
-  Future<void> createNote(String title) async {
+  Future<void> createNote(String title, {BuildContext? context}) async {
     if (_notesDirectory == null) return;
     final safeTitle = title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     final fileName = '$safeTitle.md';
@@ -137,13 +144,16 @@ class NotesProvider with ChangeNotifier {
       throw Exception('Une note avec ce nom existe déjà.');
     }
     final note = Note(filePath: filePath, title: title, content: '', tags: [], syncStatus: SyncStatus.notSynced);
+    note.lastModifiedBy = _deviceId ?? '';
     await note.saveToFile();
     await loadNotes();
     selectNote(note);
+    if (context != null) await _syncWithDelay(context);
   }
 
-  Future<void> saveNote(Note note, {String? newTitle}) async {
+  Future<void> saveNote(Note note, {String? newTitle, BuildContext? context}) async {
     note.updatedAt = DateTime.now();
+    note.lastModifiedBy = _deviceId ?? '';
     if (newTitle != null && newTitle.trim().isNotEmpty && newTitle != note.title) {
       final safeTitle = newTitle.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
       final newFileName = '$safeTitle.md';
@@ -168,6 +178,7 @@ class NotesProvider with ChangeNotifier {
     await _rebuildAndSaveTagsMapping();
     selectNote(note);
     notifyListeners();
+    if (context != null) await _syncWithDelay(context);
   }
 
   Future<void> deleteNote(Note note, {BuildContext? context}) async {
@@ -179,6 +190,7 @@ class NotesProvider with ChangeNotifier {
     await note.deleteFile();
     _notes.removeWhere((n) => n.id == note.id);
     notifyListeners();
+    if (context != null) await _syncWithDelay(context);
   }
 
   void selectNote(Note? note) {
@@ -338,7 +350,18 @@ class NotesProvider with ChangeNotifier {
 
   Future<void> forceSync({BuildContext? context}) async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expirée, veuillez vous reconnecter.')),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+          (route) => false,
+        );
+      }
+      return;
+    }
     final userId = user.id;
     // 1. Pousser toutes les notes locales modifiées/non synchronisées
     for (final note in _notes) {
@@ -348,8 +371,24 @@ class NotesProvider with ChangeNotifier {
           notifyListeners();
           await _syncService.pushNote(note, userId);
         }
+      } on AuthException catch (_) {
+        if (context != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Session expirée, veuillez vous reconnecter.')),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+            (route) => false,
+          );
+        }
+        return;
       } catch (e) {
         print('[SYNC][ERROR] pushNote: $e');
+        if (context != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur de synchronisation : $e')),
+          );
+        }
         note.syncStatus = SyncStatus.notSynced;
         notifyListeners();
       }
@@ -358,8 +397,24 @@ class NotesProvider with ChangeNotifier {
     List<Note> remoteNotes = [];
     try {
       remoteNotes = await _syncService.pullNotes(userId);
+    } on AuthException catch (_) {
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session expirée, veuillez vous reconnecter.')),
+        );
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+          (route) => false,
+        );
+      }
+      return;
     } catch (e) {
       print('[SYNC][ERROR] pullNotes: $e');
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de synchronisation : $e')),
+        );
+      }
       return;
     }
     // 3. Fusionner local et cloud
@@ -386,42 +441,49 @@ class NotesProvider with ChangeNotifier {
         final lastSynced = local.lastSyncedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
         final localChanged = local.updatedAt.isAfter(lastSynced);
         final remoteChanged = remote.updatedAt.isAfter(lastSynced);
-        if (localChanged && remoteChanged) {
-          local.syncStatus = SyncStatus.conflict;
-          notifyListeners();
-          if (context != null) {
-            await showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Conflit de synchronisation'),
-                content: Text('La note "${local.title}" a été modifiée localement ET dans le cloud. Quelle version garder ?'),
-                actions: [
-                  TextButton(
-                    onPressed: () async {
-                      await _syncService.pushNote(local, userId);
-                      local.syncStatus = SyncStatus.synced;
-                      local.lastSyncedAt = DateTime.now();
-                      Navigator.of(ctx).pop();
-                    },
-                    child: const Text('Garder local'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      local.title = remote.title;
-                      local.content = remote.content;
-                      local.tags = remote.tags;
-                      local.updatedAt = remote.updatedAt;
-                      local.syncStatus = SyncStatus.synced;
-                      local.lastSyncedAt = remote.updatedAt;
-                      local.deleted = remote.deleted;
-                      await local.saveToFile();
-                      Navigator.of(ctx).pop();
-                    },
-                    child: const Text('Garder cloud'),
-                  ),
-                ],
-              ),
-            );
+        if (localChanged && remoteChanged && remote.updatedAt != local.updatedAt) {
+          if (local.lastModifiedBy != null && remote.lastModifiedBy != null && local.lastModifiedBy == remote.lastModifiedBy) {
+            await _syncService.pushNote(local, userId);
+            local.syncStatus = SyncStatus.synced;
+            local.lastSyncedAt = DateTime.now();
+          } else {
+            local.syncStatus = SyncStatus.conflict;
+            notifyListeners();
+            if (context != null) {
+              await showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Conflit de synchronisation'),
+                  content: Text('La note "${local.title}" a été modifiée localement ET dans le cloud. Quelle version garder ?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () async {
+                        await _syncService.pushNote(local, userId);
+                        local.syncStatus = SyncStatus.synced;
+                        local.lastSyncedAt = DateTime.now();
+                        Navigator.of(ctx).pop();
+                      },
+                      child: const Text('Garder local'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        local.title = remote.title;
+                        local.content = remote.content;
+                        local.tags = remote.tags;
+                        local.updatedAt = remote.updatedAt;
+                        local.syncStatus = SyncStatus.synced;
+                        local.lastSyncedAt = remote.updatedAt;
+                        local.deleted = remote.deleted;
+                        local.lastModifiedBy = remote.lastModifiedBy;
+                        await local.saveToFile();
+                        Navigator.of(ctx).pop();
+                      },
+                      child: const Text('Garder cloud'),
+                    ),
+                  ],
+                ),
+              );
+            }
           }
         } else if (remote.updatedAt.isAfter(local.updatedAt)) {
           local.title = remote.title;
@@ -431,6 +493,7 @@ class NotesProvider with ChangeNotifier {
           local.syncStatus = SyncStatus.synced;
           local.lastSyncedAt = remote.updatedAt;
           local.deleted = remote.deleted;
+          local.lastModifiedBy = remote.lastModifiedBy;
           await local.saveToFile();
         } else {
           local.syncStatus = SyncStatus.synced;
@@ -441,5 +504,15 @@ class NotesProvider with ChangeNotifier {
     _notes.removeWhere((n) => n.deleted);
     await _rebuildAndSaveTagsMapping();
     notifyListeners();
+  }
+
+  Future<void> _syncWithDelay(BuildContext context) async {
+    // Affiche l'icône de synchro pendant au moins 1 seconde
+    final start = DateTime.now();
+    await forceSync(context: context);
+    final elapsed = DateTime.now().difference(start);
+    if (elapsed.inMilliseconds < 1000) {
+      await Future.delayed(Duration(milliseconds: 1000 - elapsed.inMilliseconds));
+    }
   }
 } 

@@ -66,7 +66,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
         tags: tags,
       );
       try {
-        await notesProvider.addNote(note);
+        await notesProvider.createNote(title, context: context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Impossible de créer la note : un fichier avec ce titre existe déjà.')),
@@ -83,7 +83,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
         createdAt: widget.note!.createdAt,
         updatedAt: DateTime.now(),
       );
-      await notesProvider.updateNote(updatedNote);
+      await notesProvider.saveNote(updatedNote, context: context);
     }
 
     Navigator.pop(context);
@@ -112,7 +112,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
 
     if (confirmed == true) {
       await flutter_provider.Provider.of<NotesProvider>(context, listen: false)
-          .deleteNote(widget.note!);
+          .deleteNote(widget.note!, context: context);
       Navigator.pop(context);
     }
   }
