@@ -38,6 +38,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     _contentController = TextEditingController(text: widget.note?.content ?? '');
     _tags = List<String>.from(widget.note?.tags ?? []);
     _tagInputController = TextEditingController();
+    _previewMode = !widget.isNewNote;
   }
 
   @override

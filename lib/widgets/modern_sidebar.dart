@@ -46,6 +46,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const Spacer(),
                   ],
                 ),
               ),
@@ -84,6 +85,35 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   await notesProvider.importNote(title, content);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Note importée depuis ${file.name}')),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_open),
+                title: const Text('Changer de dossier'),
+                onTap: () async {
+                  final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                  await notesProvider.moveNotesToNewDirectory(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.sync),
+                title: const Text('Forcer la synchronisation'),
+                onTap: () async {
+                  print('[DEBUG] Bouton synchro cliqué');
+                  final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                  await notesProvider.forceSync(context: context);
+                  print('[DEBUG] Synchro terminée');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Rafraîchir les notes'),
+                onTap: () async {
+                  final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                  await notesProvider.loadNotes();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notes rafraîchies depuis le dossier.')),
                   );
                 },
               ),

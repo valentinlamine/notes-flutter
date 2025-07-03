@@ -46,6 +46,7 @@ class ModernNoteList extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                trailing: _buildSyncStatusIcon(note.syncStatus),
                 selected: selectedNote?.filePath == note.filePath,
                 onTap: () => onNoteSelected(note),
               );
@@ -54,5 +55,31 @@ class ModernNoteList extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildSyncStatusIcon(SyncStatus status) {
+    late Icon icon;
+    late String message;
+
+    switch (status) {
+      case SyncStatus.synced:
+        icon = const Icon(Icons.cloud_done, color: Colors.green, size: 18);
+        message = 'Synchronisé';
+        break;
+      case SyncStatus.syncing:
+        icon = const Icon(Icons.cloud_upload, color: Colors.orange, size: 18);
+        message = 'Synchronisation en cours...';
+        break;
+      case SyncStatus.conflict:
+        icon = const Icon(Icons.error, color: Colors.red, size: 18);
+        message = 'Conflit de synchronisation';
+        break;
+      case SyncStatus.notSynced:
+      default:
+        icon = const Icon(Icons.cloud_queue, color: Colors.grey, size: 18);
+        message = 'Non synchronisé';
+        break;
+    }
+    return Tooltip(message: message, child: icon);
   }
 } 

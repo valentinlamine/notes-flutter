@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:process_run/process_run.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/material.dart';
+import 'notes_sync_service.dart'; // Pour la synchro cloud
 
 class NotesProvider with ChangeNotifier {
   List<Note> _notes = [];
@@ -16,14 +18,21 @@ class NotesProvider with ChangeNotifier {
   String? _selectedTag;
   Note? _selectedNote;
   String? _notesDirectory;
+  bool hasDirectoryPermission = true;
 
   static const _prefsKey = 'notes_directory_path';
+
+  // Ajout du callback pour l'UI
+  VoidCallback? onDirectoryAccessError;
+
+  final NotesSyncService _syncService = NotesSyncService();
 
   List<Note> get notes => _notes;
   List<String> get allTags => _tagsMapping.keys.toList()..sort();
   String? get selectedTag => _selectedTag;
   Note? get selectedNote => _selectedNote;
   String? get notesDirectory => _notesDirectory;
+  bool get directoryPermissionOk => hasDirectoryPermission;
 
   NotesProvider() {
     _init();
@@ -64,15 +73,47 @@ class NotesProvider with ChangeNotifier {
     final dir = Directory(_notesDirectory!);
     try {
       if (!await dir.exists()) throw Exception('Dossier introuvable');
+      hasDirectoryPermission = true;
       final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList();
       _notes = await Future.wait(files.map((f) => Note.fromFile(f)));
       _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       await _rebuildAndSaveTagsMapping();
+      // Synchronisation cloud : pull
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final remoteNotes = await _syncService.pullNotes(user.id);
+        // Fusionner les notes locales et distantes (simple : si remote plus récent, remplacer local)
+        for (final remote in remoteNotes) {
+          final local = _notes.firstWhere(
+            (n) => n.remoteId == remote.remoteId || n.title == remote.title,
+            orElse: () => remote,
+          );
+          if (local.updatedAt.isBefore(remote.updatedAt)) {
+            // Remplacer local par distant
+            final file = File('${_notesDirectory!}/${remote.title}.md');
+            await file.writeAsString(remote.content);
+            local.content = remote.content;
+            local.tags = remote.tags;
+            local.updatedAt = remote.updatedAt;
+            local.syncStatus = SyncStatus.synced;
+            local.remoteId = remote.remoteId;
+            local.lastSyncedAt = remote.updatedAt;
+          } else if (local.updatedAt.isAfter(remote.updatedAt)) {
+            // Local plus récent : marquer comme à synchroniser
+            local.syncStatus = SyncStatus.notSynced;
+          } else {
+            local.syncStatus = SyncStatus.synced;
+          }
+        }
+      }
       notifyListeners();
     } catch (e) {
       print('[ERROR] Impossible d\'accéder au dossier de notes : $e');
-      _notesDirectory = null;
+      hasDirectoryPermission = false;
       notifyListeners();
+      if (onDirectoryAccessError != null) {
+        onDirectoryAccessError!();
+      }
     }
   }
 
@@ -119,9 +160,30 @@ class NotesProvider with ChangeNotifier {
   }
 
   Future<void> saveNote(Note note) async {
+    note.updatedAt = DateTime.now();
     await note.saveToFile();
-    await loadNotes();
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      note.syncStatus = SyncStatus.syncing;
+      notifyListeners();
+      try {
+        await _syncService.pushNote(note, user.id);
+      } catch (e) {
+        print('Erreur push note: $e');
+        note.syncStatus = SyncStatus.notSynced;
+      }
+    }
+
+    final index = _notes.indexWhere((n) => n.filePath == note.filePath);
+    if (index != -1) {
+      _notes[index] = note;
+    }
+    _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    await _rebuildAndSaveTagsMapping();
+    
     selectNote(note);
+    notifyListeners();
   }
 
   void selectNote(Note? note) {
@@ -134,11 +196,11 @@ class NotesProvider with ChangeNotifier {
     final file = File(note.filePath);
     if (await file.exists()) {
       if (Platform.isMacOS) {
-        await run('open', ['-R', file.path]);
+        await run('open -R "${file.path}"');
       } else if (Platform.isWindows) {
-        await run('explorer.exe', ['/select,', file.path]);
+        await run('explorer.exe /select,"${file.path}"');
       } else if (Platform.isLinux) {
-        await run('xdg-open', [file.parent.path]);
+        await run('xdg-open "${file.parent.path}"');
       }
     }
   }
@@ -241,6 +303,111 @@ class NotesProvider with ChangeNotifier {
     } else {
       print('Erreur suppression compte: \\n${response.body}');
       return false;
+    }
+  }
+
+  /// Déplace toutes les notes et fichiers de prefs/meta vers un nouveau dossier choisi par l'utilisateur
+  Future<bool> moveNotesToNewDirectory(BuildContext context) async {
+    if (_notesDirectory == null) return false;
+    final oldDir = Directory(_notesDirectory!);
+    final newDirPath = await getDirectoryPath();
+    if (newDirPath == null) return false;
+    final newDir = Directory(newDirPath);
+    try {
+      // Crée le dossier cible s'il n'existe pas
+      if (!await newDir.exists()) await newDir.create(recursive: true);
+      // Copie toutes les notes .md
+      final noteFiles = oldDir.listSync().whereType<File>().where((f) => f.path.endsWith('.md'));
+      for (final file in noteFiles) {
+        final newFile = File(p.join(newDirPath, p.basename(file.path)));
+        await file.copy(newFile.path);
+      }
+      // Copie les fichiers de prefs/meta
+      final prefsFile = File(p.join(_notesDirectory!, '.flutternotes.json'));
+      if (await prefsFile.exists()) {
+        await prefsFile.copy(p.join(newDirPath, '.flutternotes.json'));
+      }
+      final metaFile = File(p.join(_notesDirectory!, '.flutternotesmeta.json'));
+      if (await metaFile.exists()) {
+        await metaFile.copy(p.join(newDirPath, '.flutternotesmeta.json'));
+      }
+      // Met à jour le chemin dans les prefs
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKey, newDirPath);
+      _notesDirectory = newDirPath;
+      await loadNotes();
+      notifyListeners();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dossier de notes changé avec succès.')),
+      );
+      return true;
+    } catch (e) {
+      print('[ERROR] Erreur lors du transfert des notes : $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du transfert : $e')),
+      );
+      return false;
+    }
+  }
+
+  void resetDirectoryAccessError() {
+    hasDirectoryPermission = true;
+    onDirectoryAccessError = null;
+  }
+
+  Future<void> forceSync({bool showSnackbar = true, BuildContext? context}) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      if (showSnackbar && context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous devez être connecté pour synchroniser.')));
+      }
+      return;
+    }
+
+    if (showSnackbar && context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Synchronisation en cours...')));
+    }
+
+    final remoteNotes = await _syncService.pullNotes(user.id);
+
+    for (final remoteNote in remoteNotes) {
+      final localMatchIndex = _notes.indexWhere((n) => n.remoteId == remoteNote.remoteId);
+
+      if (localMatchIndex != -1) {
+        final localNote = _notes[localMatchIndex];
+        if (remoteNote.updatedAt.isAfter(localNote.updatedAt)) {
+          localNote.title = remoteNote.title;
+          localNote.content = remoteNote.content;
+          localNote.tags = remoteNote.tags;
+          localNote.updatedAt = remoteNote.updatedAt;
+          localNote.syncStatus = SyncStatus.synced;
+          localNote.lastSyncedAt = remoteNote.updatedAt;
+          await localNote.saveToFile();
+        }
+      } else {
+        remoteNote.filePath = '${_notesDirectory!}/${remoteNote.title}.md';
+        await remoteNote.saveToFile();
+        _notes.add(remoteNote);
+      }
+    }
+    
+    final unsyncedNotes = _notes.where((n) => n.syncStatus == SyncStatus.notSynced).toList();
+    for (final note in unsyncedNotes) {
+      note.syncStatus = SyncStatus.syncing;
+      notifyListeners();
+      try {
+        await _syncService.pushNote(note, user.id);
+      } catch (e) {
+        print('Erreur push : $e');
+        note.syncStatus = SyncStatus.notSynced;
+      }
+    }
+
+    _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    await _rebuildAndSaveTagsMapping();
+    notifyListeners();
+    if (showSnackbar && context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Synchronisation terminée.')));
     }
   }
 } 

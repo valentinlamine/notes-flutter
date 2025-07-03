@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:yaml/yaml.dart';
 import 'package:yaml/yaml.dart' as yaml;
 
+// Enum pour le statut de synchronisation
+enum SyncStatus { notSynced, syncing, synced, conflict }
+
 class Note {
   String filePath;
   String title;
@@ -9,6 +12,10 @@ class Note {
   List<String> tags;
   DateTime createdAt;
   DateTime updatedAt;
+  // Champs pour la synchro cloud
+  String? remoteId;
+  SyncStatus syncStatus;
+  DateTime? lastSyncedAt;
 
   Note({
     required this.filePath,
@@ -17,6 +24,9 @@ class Note {
     this.tags = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
+    this.remoteId,
+    this.syncStatus = SyncStatus.notSynced,
+    this.lastSyncedAt,
   })  : this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
 
@@ -71,5 +81,33 @@ class Note {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  // Conversion Map <-> Note pour Supabase
+  factory Note.fromSupabase(Map<String, dynamic> map, {String? localFilePath}) {
+    return Note(
+      filePath: localFilePath ?? '',
+      remoteId: map['id'] as String?,
+      title: map['title'] as String? ?? '',
+      content: map['content'] as String? ?? '',
+      tags: (map['tags'] as List?)?.cast<String>() ?? [],
+      createdAt: DateTime.tryParse(map['created_at'] ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(map['updated_at'] ?? '') ?? DateTime.now(),
+      syncStatus: SyncStatus.synced,
+      lastSyncedAt: DateTime.tryParse(map['updated_at'] ?? ''),
+    );
+  }
+
+  Map<String, dynamic> toSupabaseMap(String userId) {
+    return {
+      'id': remoteId,
+      'user_id': userId,
+      'title': title,
+      'content': content,
+      'tags': tags,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
+      'deleted': false,
+    };
   }
 } 

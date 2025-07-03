@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         home: Consumer<NotesProvider>(
           builder: (context, notesProvider, _) {
-            if (notesProvider.notesDirectory == null) {
+            if (notesProvider.notesDirectory == null || !notesProvider.directoryPermissionOk) {
               return const WelcomeScreen();
             } else {
               return const HomeScreen();
