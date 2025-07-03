@@ -5,6 +5,9 @@ import '../widgets/modern_sidebar.dart';
 import '../widgets/modern_note_list.dart';
 import '../widgets/modern_note_editor.dart';
 import '../models/note.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'welcome_screen.dart';
+import '../config/supabase_config.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -87,10 +90,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = Supabase.instance.client.auth.currentUser;
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar
+          // Sidebar + bandeau utilisateur
           Container(
             width: 220,
             decoration: BoxDecoration(
@@ -99,14 +103,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 right: BorderSide(color: theme.dividerColor, width: 1),
               ),
             ),
-            child: ModernSidebar(
-              onTagsSelected: (tags) {
-                setState(() {
-                  _selectedNote = null;
-                  _isEditing = false;
-                  _selectedTags = tags;
-                });
-              },
+            child: Column(
+              children: [
+                Expanded(
+                  child: ModernSidebar(
+                    onTagsSelected: (tags) {
+                      setState(() {
+                        _selectedNote = null;
+                        _isEditing = false;
+                        _selectedTags = tags;
+                      });
+                    },
+                  ),
+                ),
+                if (user != null)
+                  _UserProfileBandeau(user: user),
+              ],
             ),
           ),
           // Liste des notes
@@ -153,6 +165,158 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _UserProfileBandeau extends StatefulWidget {
+  final dynamic user;
+  const _UserProfileBandeau({required this.user});
+
+  @override
+  State<_UserProfileBandeau> createState() => _UserProfileBandeauState();
+}
+
+class _UserProfileBandeauState extends State<_UserProfileBandeau> {
+  final GlobalKey _key = GlobalKey();
+  OverlayEntry? _overlayEntry;
+
+  void _showMenu() {
+    final RenderBox renderBox = _key.currentContext!.findRenderObject() as RenderBox;
+    final Offset offset = renderBox.localToGlobal(Offset.zero);
+    final Size size = renderBox.size;
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: offset.dx,
+        top: offset.dy - 80,
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: size.width,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Déconnexion'),
+                  onTap: () async {
+                    _hideMenu();
+                    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                    await notesProvider.deleteAllNotesAndPrefs();
+                    await Supabase.instance.client.auth.signOut();
+                    notesProvider.clearNotesDirectory();
+                    if (mounted) {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                        (route) => false,
+                      );
+                    }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                  onTap: () async {
+                    _hideMenu();
+                    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Supprimer le compte'),
+                        content: const Text('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      final supabaseUrl = SupabaseConfig.supabaseUrl;
+                      final success = await NotesProvider.deleteAccountWithEdgeFunction(supabaseUrl);
+                      if (success) {
+                        await notesProvider.deleteAllNotesAndPrefs();
+                        await Supabase.instance.client.auth.signOut();
+                        if (mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                            (route) => false,
+                          );
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Erreur lors de la suppression du compte.')), 
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideMenu() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _hideMenu();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: _key,
+      onTap: () {
+        if (_overlayEntry == null) {
+          _showMenu();
+        } else {
+          _hideMenu();
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.9),
+          border: const Border(top: BorderSide(width: 1, color: Colors.black12)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.account_circle, size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.user.email ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Icon(Icons.expand_less, size: 18),
+          ],
+        ),
       ),
     );
   }

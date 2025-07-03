@@ -7,6 +7,8 @@ import 'notes_meta_service.dart';
 import 'app_preferences_service.dart';
 import 'package:path/path.dart' as p;
 import 'package:process_run/process_run.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotesProvider with ChangeNotifier {
   List<Note> _notes = [];
@@ -30,6 +32,7 @@ class NotesProvider with ChangeNotifier {
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
     final savedDir = prefs.getString(_prefsKey);
+    print('[DEBUG] Chemin du dossier de notes retrouvé dans prefs : $savedDir');
     if (savedDir != null && Directory(savedDir).existsSync()) {
       _notesDirectory = savedDir;
       await loadNotes();
@@ -45,6 +48,7 @@ class NotesProvider with ChangeNotifier {
       _notesDirectory = directory;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, directory);
+      print('[DEBUG] Chemin du dossier de notes sauvegardé dans prefs : $directory');
       await loadNotes();
       notifyListeners();
       print('Dossier sélectionné et enregistré: $directory');
@@ -58,12 +62,18 @@ class NotesProvider with ChangeNotifier {
   Future<void> loadNotes() async {
     if (_notesDirectory == null) return;
     final dir = Directory(_notesDirectory!);
-    if (!await dir.exists()) return;
-    final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList();
-    _notes = await Future.wait(files.map((f) => Note.fromFile(f)));
-    _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    await _rebuildAndSaveTagsMapping();
-    notifyListeners();
+    try {
+      if (!await dir.exists()) throw Exception('Dossier introuvable');
+      final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList();
+      _notes = await Future.wait(files.map((f) => Note.fromFile(f)));
+      _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      await _rebuildAndSaveTagsMapping();
+      notifyListeners();
+    } catch (e) {
+      print('[ERROR] Impossible d\'accéder au dossier de notes : $e');
+      _notesDirectory = null;
+      notifyListeners();
+    }
   }
 
   Future<void> _rebuildAndSaveTagsMapping() async {
@@ -171,5 +181,66 @@ class NotesProvider with ChangeNotifier {
     await note.saveToFile();
     await loadNotes();
     selectNote(note);
+  }
+
+  void clearNotesDirectory() {
+    _notesDirectory = null;
+    _notes = [];
+    _tagsMapping = {};
+    _selectedNote = null;
+    _selectedTag = null;
+    notifyListeners();
+  }
+
+  Future<void> deleteAllNotesAndPrefs() async {
+    if (_notesDirectory == null) return;
+    final dir = Directory(_notesDirectory!);
+    try {
+      if (await dir.exists()) {
+        // Supprime tous les fichiers .md
+        final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md'));
+        for (final file in files) {
+          try {
+            await file.delete();
+          } catch (e) {
+            print('Erreur lors de la suppression du fichier ${file.path} : $e');
+          }
+        }
+        // Supprime les fichiers de prefs/meta
+        final prefsFile = File('${_notesDirectory!}/.flutternotes.json');
+        if (await prefsFile.exists()) {
+          try { await prefsFile.delete(); } catch (e) { print('Erreur suppression prefs : $e'); }
+        }
+        final metaFile = File('${_notesDirectory!}/.flutternotesmeta.json');
+        if (await metaFile.exists()) {
+          try { await metaFile.delete(); } catch (e) { print('Erreur suppression meta : $e'); }
+        }
+      }
+    } catch (e) {
+      print('Erreur lors de la suppression des fichiers utilisateur : $e');
+    }
+    clearNotesDirectory();
+  }
+
+  static Future<bool> deleteAccountWithEdgeFunction(String supabaseUrl) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return false;
+    final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+    if (accessToken == null) return false;
+    final functionUrl = '$supabaseUrl/functions/v1/delete_user';
+    final response = await http.post(
+      Uri.parse(functionUrl),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+      body: '{"user": {"id": "${user.id}"}}',
+    );
+    if (response.statusCode == 200) {
+      return true;
+    } else {
+      print('Erreur suppression compte: \\n${response.body}');
+      return false;
+    }
   }
 } 

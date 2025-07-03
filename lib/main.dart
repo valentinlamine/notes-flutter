@@ -4,8 +4,15 @@ import 'screens/home_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/notes_provider.dart';
 import 'config/app_theme.dart';
+import 'config/supabase_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
+  );
   runApp(const MyApp());
 }
 

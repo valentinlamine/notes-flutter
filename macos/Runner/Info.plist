@@ -34,5 +34,10 @@
 	<string>Ce dossier sera utilisé pour stocker vos notes Markdown.</string>
 	<key>NSDesktopFolderUsageDescription</key>
 	<string>Ce dossier sera utilisé pour stocker vos notes Markdown.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
