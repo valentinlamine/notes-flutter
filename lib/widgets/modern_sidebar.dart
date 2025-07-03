@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../models/note.dart';
 import 'package:file_selector/file_selector.dart';
+import '../utils/snackbar_utils.dart';
+import 'sidebar/tag_filter_list.dart';
+import 'sidebar/sidebar_action_tile.dart';
 
 class ModernSidebar extends StatefulWidget {
   final Function(List<String>) onTagsSelected;
@@ -64,9 +67,9 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   widget.onTagsSelected(_selectedTags);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.file_upload),
-                title: const Text('Importer une note'),
+              SidebarActionTile(
+                icon: Icons.file_upload,
+                text: 'Importer une note',
                 onTap: () async {
                   // Ouvre un dialogue natif pour sélectionner un fichier .txt ou .md
                   final typeGroup = XTypeGroup(
@@ -75,30 +78,24 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   );
                   final file = await openFile(acceptedTypeGroups: [typeGroup]);
                   if (file == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Aucun fichier sélectionné.')),
-                    );
+                    showAppSnackBar(context, 'Aucun fichier sélectionné.');
                     return;
                   }
                   final content = await file.readAsString();
                   final title = file.name.split('.').first;
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
                   await notesProvider.importNote(title, content);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Note importée depuis ${file.name}')),
-                  );
+                  showAppSnackBar(context, 'Note importée depuis ${file.name}');
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.folder_open),
-                title: const Text('Changer de dossier'),
+              SidebarActionTile(
+                icon: Icons.folder_open,
+                text: 'Changer de dossier',
                 onTap: () async {
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
                   final result = await notesProvider.moveNotesToNewDirectory(context);
                   if (!result && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Erreur lors du changement de dossier.')),
-                    );
+                    showAppSnackBar(context, 'Erreur lors du changement de dossier.');
                   }
                 },
               ),
@@ -106,7 +103,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
                 leading: _syncing
                     ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.sync),
-                title: const Text('Forcer la synchronisation'),
+                title: const Text('Synchronisation'),
                 enabled: !_syncing,
                 onTap: _syncing
                     ? null
@@ -120,15 +117,13 @@ class _ModernSidebarState extends State<ModernSidebar> {
                         setState(() => _syncing = false);
                       },
               ),
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: const Text('Rafraîchir les notes'),
+              SidebarActionTile(
+                icon: Icons.refresh,
+                text: 'Rafraîchir les notes',
                 onTap: () async {
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
                   await notesProvider.loadNotes();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Notes rafraîchies depuis le dossier.')),
-                  );
+                  showAppSnackBar(context, 'Notes rafraîchies depuis le dossier.');
                 },
               ),
               const Padding(
@@ -143,29 +138,13 @@ class _ModernSidebarState extends State<ModernSidebar> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  itemCount: notesProvider.allTags.length,
-                  itemBuilder: (context, index) {
-                    final tag = notesProvider.allTags[index];
-                    return CheckboxListTile(
-                      value: _selectedTags.contains(tag),
-                      title: Text(tag),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                      onChanged: (checked) {
-                        setState(() {
-                          if (checked == true) {
-                            _selectedTags.add(tag);
-                          } else {
-                            _selectedTags.remove(tag);
-                          }
-                        });
-                        if (_selectedTags.isEmpty) {
-                          notesProvider.loadNotes();
-                        }
-                        widget.onTagsSelected(_selectedTags);
-                      },
-                    );
+                child: TagFilterList(
+                  allTags: notesProvider.allTags,
+                  selectedTags: _selectedTags,
+                  onTagsSelected: (tags) {
+                    setState(() { _selectedTags = tags; });
+                    if (_selectedTags.isEmpty) notesProvider.loadNotes();
+                    widget.onTagsSelected(_selectedTags);
                   },
                 ),
               ),
