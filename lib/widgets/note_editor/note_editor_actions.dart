@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/note.dart';
+import 'package:provider/provider.dart';
+import '../../services/notes_provider.dart';
 
 class NoteEditorActions extends StatelessWidget {
   final bool previewMode;
@@ -44,6 +46,19 @@ class NoteEditorActions extends StatelessWidget {
             padding: const EdgeInsets.all(8),
           ),
         ),
+        if (!isNewNote && note != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: IconButton(
+              icon: const Icon(Icons.folder_open, size: 20),
+              onPressed: () async {
+                final provider = Provider.of<NotesProvider>(context, listen: false);
+                await provider.revealInFinder(note!);
+              },
+              tooltip: 'Afficher dans le Finder',
+              padding: const EdgeInsets.all(8),
+            ),
+          ),
         if (!isNewNote && note != null)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../models/note.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../providers/notes_provider.dart';
+import '../services/notes_provider.dart';
 
 class NoteCard extends StatelessWidget {
   final Note note;
@@ -55,9 +58,22 @@ class NoteCard extends StatelessWidget {
                 }).toList(),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Modifié le [200~${DateFormat('dd/MM/yyyy à HH:mm').format(note.updatedAt)}',
-                style: Theme.of(context).textTheme.bodySmall,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Modifié le ${DateFormat('dd/MM/yyyy à HH:mm').format(note.updatedAt)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.folder_open, size: 20),
+                    tooltip: 'Afficher dans le Finder',
+                    onPressed: () async {
+                      final provider = Provider.of<NotesProvider>(context, listen: false);
+                      await provider.revealInFinder(note);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
