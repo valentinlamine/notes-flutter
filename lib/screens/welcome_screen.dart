@@ -64,7 +64,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: theme.shadowColor.withOpacity(0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
@@ -103,7 +103,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: theme.shadowColor.withOpacity(0.05),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),

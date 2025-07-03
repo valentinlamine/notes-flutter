@@ -59,7 +59,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.person_add_alt_1, size: 48, color: theme.primaryColor),
+                  Icon(Icons.person_add_alt_1, size: 48, color: theme.colorScheme.primary),
                   const SizedBox(height: 16),
                   Text('Inscription', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),

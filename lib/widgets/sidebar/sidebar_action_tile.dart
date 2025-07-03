@@ -16,8 +16,8 @@ class _SidebarActionTileState extends State<SidebarActionTile> {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15);
-    final hoverColor = Theme.of(context).hoverColor;
+    final textStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 15, color: Theme.of(context).colorScheme.onSurface);
+    final hoverColor = Theme.of(context).colorScheme.primary.withOpacity(0.08);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
 import '../models/note.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class ModernNoteList extends StatelessWidget {
   final List<Note> notes;
@@ -41,12 +42,21 @@ class ModernNoteList extends StatelessWidget {
               final note = notes[index];
               return ListTile(
                 title: Text(note.title),
-                subtitle: Text(
-                  note.content,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                subtitle: SizedBox(
+                  height: 22, // hauteur d'une ligne
+                  child: MarkdownBody(
+                    data: note.content.split('\n').first,
+                    styleSheet: MarkdownStyleSheet(
+                      p: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13, height: 1.2),
+                      h1: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 15),
+                      h2: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                      h3: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    softLineBreak: true,
+                    shrinkWrap: true,
+                  ),
                 ),
-                trailing: _buildSyncStatusIcon(note.syncStatus),
+                trailing: _buildSyncStatusIcon(context, note.syncStatus),
                 selected: selectedNote?.filePath == note.filePath,
                 onTap: () => onNoteSelected(note),
               );
@@ -57,26 +67,26 @@ class ModernNoteList extends StatelessWidget {
     );
   }
 
-  Widget _buildSyncStatusIcon(SyncStatus status) {
+  Widget _buildSyncStatusIcon(BuildContext context, SyncStatus status) {
     late Icon icon;
     late String message;
 
     switch (status) {
       case SyncStatus.synced:
-        icon = const Icon(Icons.cloud_done, color: Colors.green, size: 18);
+        icon = Icon(Icons.cloud_done, color: Colors.greenAccent.shade400, size: 18);
         message = 'Synchronisé';
         break;
       case SyncStatus.syncing:
-        icon = const Icon(Icons.cloud_upload, color: Colors.orange, size: 18);
+        icon = Icon(Icons.cloud_upload, color: Colors.orangeAccent.shade200, size: 18);
         message = 'Synchronisation en cours...';
         break;
       case SyncStatus.conflict:
-        icon = const Icon(Icons.error, color: Colors.red, size: 18);
+        icon = Icon(Icons.error, color: Colors.redAccent.shade200, size: 18);
         message = 'Conflit de synchronisation';
         break;
       case SyncStatus.notSynced:
       default:
-        icon = const Icon(Icons.cloud_queue, color: Colors.grey, size: 18);
+        icon = Icon(Icons.cloud_queue, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), size: 18);
         message = 'Non synchronisé';
         break;
     }

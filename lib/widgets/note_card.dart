@@ -21,6 +21,7 @@ class NoteCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       elevation: 2,
+      color: Theme.of(context).cardColor,
       child: InkWell(
         onTap: onTap,
         child: Padding(

@@ -50,6 +50,11 @@ class NotesProvider with ChangeNotifier {
     if (savedDir != null && Directory(savedDir).existsSync()) {
       _notesDirectory = savedDir;
       await loadNotes();
+      // Synchro auto au démarrage si utilisateur connecté
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await forceSync();
+      }
     }
     notifyListeners();
   }
@@ -61,6 +66,11 @@ class NotesProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, directory);
       await loadNotes();
+      // Synchro auto après ouverture du dossier si utilisateur connecté
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await forceSync();
+      }
       notifyListeners();
       return true;
     } else {
@@ -330,6 +340,11 @@ class NotesProvider with ChangeNotifier {
       await prefs.setString(_prefsKey, newDirPath);
       _notesDirectory = newDirPath;
       await loadNotes();
+      // Synchro auto après changement de dossier si utilisateur connecté
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await forceSync();
+      }
       notifyListeners();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -503,6 +518,12 @@ class NotesProvider with ChangeNotifier {
     // 4. Supprimer localement les notes marquées deleted dans le cloud
     _notes.removeWhere((n) => n.deleted);
     await _rebuildAndSaveTagsMapping();
+    // S'assurer que toutes les notes non supprimées et non en conflit sont bien marquées comme synchronisées
+    for (final note in _notes) {
+      if (!note.deleted && note.syncStatus != SyncStatus.conflict) {
+        note.syncStatus = SyncStatus.synced;
+      }
+    }
     notifyListeners();
   }
 

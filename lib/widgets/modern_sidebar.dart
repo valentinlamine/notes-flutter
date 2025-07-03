@@ -28,9 +28,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
       builder: (context, notesProvider, child) {
         final theme = Theme.of(context);
         return Container(
-          color: theme.brightness == Brightness.dark
-              ? const Color(0xFF23242A)
-              : const Color(0xFFF3F4F7),
+          color: theme.colorScheme.surface,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -125,14 +123,14 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   showAppSnackBar(context, 'Notes rafraîchies depuis le dossier.');
                 },
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Text(
                   'TAGS',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ),

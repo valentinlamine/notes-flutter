@@ -163,9 +163,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
-              color: theme.brightness == Brightness.dark
-                  ? const Color(0xFF23242A)
-                  : const Color(0xFFF3F4F7),
+              color: theme.cardColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -180,9 +178,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                       decoration: InputDecoration(
                         hintText: 'Titre',
                         filled: true,
-                        fillColor: theme.brightness == Brightness.dark
-                            ? const Color(0xFF23242A)
-                            : Colors.white,
+                        fillColor: theme.cardColor,
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -261,9 +257,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                       decoration: InputDecoration(
                         hintText: 'Contenu de la note...',
                         filled: true,
-                        fillColor: theme.brightness == Brightness.dark
-                            ? const Color(0xFF23242A)
-                            : const Color(0xFFF8F9FB),
+                        fillColor: theme.colorScheme.surface,
                         border: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         enabledBorder: InputBorder.none,

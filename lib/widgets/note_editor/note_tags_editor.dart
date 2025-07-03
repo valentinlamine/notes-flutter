@@ -47,6 +47,7 @@ class _NoteTagsEditorState extends State<NoteTagsEditor> {
           final color = theme.brightness == Brightness.dark
               ? pastelColorsDark[entry.key % pastelColorsDark.length]
               : pastelColors[entry.key % pastelColors.length];
+          final labelColor = theme.brightness == Brightness.dark ? Colors.white : Colors.black87;
           return Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Chip(
@@ -56,7 +57,7 @@ class _NoteTagsEditorState extends State<NoteTagsEditor> {
                   tag,
                   style: TextStyle(
                     fontSize: 13,
-                    color: theme.brightness == Brightness.dark ? Colors.white : Colors.black87,
+                    color: labelColor,
                   ),
                 ),
               ),
@@ -74,7 +75,7 @@ class _NoteTagsEditorState extends State<NoteTagsEditor> {
           margin: const EdgeInsets.only(left: 6),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: theme.brightness == Brightness.dark ? const Color(0xFF23242A) : Colors.white,
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(8),
           ),
           child: TextField(
@@ -82,7 +83,7 @@ class _NoteTagsEditorState extends State<NoteTagsEditor> {
             decoration: InputDecoration(
               hintText: 'Tag',
               filled: true,
-              fillColor: theme.brightness == Brightness.dark ? const Color(0xFF23242A) : Colors.white,
+              fillColor: theme.cardColor,
               border: InputBorder.none,
               focusedBorder: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -90,7 +91,7 @@ class _NoteTagsEditorState extends State<NoteTagsEditor> {
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             ),
-            style: const TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
             onSubmitted: (value) {
               final cleanTag = value.trim();
               if (cleanTag.isNotEmpty && !widget.tags.contains(cleanTag)) {

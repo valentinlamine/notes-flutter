@@ -11,7 +11,7 @@ class Sidebar extends StatelessWidget {
       builder: (context, notesProvider, child) {
         return Container(
           width: 200,
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+          color: Theme.of(context).colorScheme.surface,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -29,6 +29,7 @@ class Sidebar extends StatelessWidget {
                   'Tags',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
