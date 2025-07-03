@@ -61,8 +61,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result != null && result.isNotEmpty) {
       final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
-      await notesProvider.createNote(result);
-      setState(() {}); // Pour rafraîchir la sélection
+      try {
+        await notesProvider.createNote(result);
+        setState(() {}); // Pour rafraîchir la sélection
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Impossible de créer la note : un fichier avec ce titre existe déjà.')),
+          );
+        }
+      }
     }
   }
 

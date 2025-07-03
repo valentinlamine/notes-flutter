@@ -24,6 +24,8 @@ class NotesProvider with ChangeNotifier {
 
   static const _prefsKey = 'notes_directory_path';
 
+  final NotesSyncService _syncService = NotesSyncService();
+
   List<Note> get notes => _notes;
   List<String> get allTags => _tagsMapping.keys.toList()..sort();
   String? get selectedTag => _selectedTag;
@@ -65,10 +67,16 @@ class NotesProvider with ChangeNotifier {
     try {
       if (!await dir.exists()) throw Exception('Dossier introuvable');
       hasDirectoryPermission = true;
+      // Sauvegarde l'état de sync des notes déjà en mémoire
+      final Map<String, SyncStatus> oldStatus = { for (var n in _notes) n.id : n.syncStatus };
+      final Map<String, DateTime?> oldLastSynced = { for (var n in _notes) n.id : n.lastSyncedAt };
       final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList();
       _notes = await Future.wait(files.map((f) async {
         final note = await Note.fromFile(f);
         await _ensureNoteHeader(note);
+        // Restaure le statut de sync si déjà connu
+        note.syncStatus = oldStatus[note.id] ?? SyncStatus.notSynced;
+        note.lastSyncedAt = oldLastSynced[note.id];
         return note;
       }));
       _deduplicateNotes();
@@ -128,7 +136,7 @@ class NotesProvider with ChangeNotifier {
     if (File(filePath).existsSync()) {
       throw Exception('Une note avec ce nom existe déjà.');
     }
-    final note = Note(filePath: filePath, title: title, content: '', tags: []);
+    final note = Note(filePath: filePath, title: title, content: '', tags: [], syncStatus: SyncStatus.notSynced);
     await note.saveToFile();
     await loadNotes();
     selectNote(note);
@@ -162,11 +170,15 @@ class NotesProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteNote(Note note) async {
+  Future<void> deleteNote(Note note, {BuildContext? context}) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null && note.remoteId != null) {
+      await _syncService.deleteNoteCloud(note, user.id);
+    }
+    // Suppression locale
     await note.deleteFile();
-    await loadNotes();
-    _deduplicateNotes();
-    selectNote(null);
+    _notes.removeWhere((n) => n.id == note.id);
+    notifyListeners();
   }
 
   void selectNote(Note? note) {
@@ -322,5 +334,112 @@ class NotesProvider with ChangeNotifier {
       }
       return false;
     }
+  }
+
+  Future<void> forceSync({BuildContext? context}) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    final userId = user.id;
+    // 1. Pousser toutes les notes locales modifiées/non synchronisées
+    for (final note in _notes) {
+      try {
+        if (note.syncStatus != SyncStatus.synced) {
+          note.syncStatus = SyncStatus.syncing;
+          notifyListeners();
+          await _syncService.pushNote(note, userId);
+        }
+      } catch (e) {
+        print('[SYNC][ERROR] pushNote: $e');
+        note.syncStatus = SyncStatus.notSynced;
+        notifyListeners();
+      }
+    }
+    // 2. Récupérer toutes les notes du cloud
+    List<Note> remoteNotes = [];
+    try {
+      remoteNotes = await _syncService.pullNotes(userId);
+    } catch (e) {
+      print('[SYNC][ERROR] pullNotes: $e');
+      return;
+    }
+    // 3. Fusionner local et cloud
+    for (final remote in remoteNotes) {
+      final localIdx = _notes.indexWhere((n) => n.id == remote.id);
+      if (localIdx == -1) {
+        // Nouvelle note distante, ajouter localement
+        final newNote = Note(
+          id: remote.id,
+          filePath: '$_notesDirectory/${remote.title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.md',
+          title: remote.title,
+          content: remote.content,
+          tags: remote.tags,
+          createdAt: remote.createdAt,
+          updatedAt: remote.updatedAt,
+          syncStatus: SyncStatus.synced,
+          lastSyncedAt: remote.updatedAt,
+          deleted: remote.deleted,
+        );
+        await newNote.saveToFile();
+        _notes.add(newNote);
+      } else {
+        final local = _notes[localIdx];
+        final lastSynced = local.lastSyncedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final localChanged = local.updatedAt.isAfter(lastSynced);
+        final remoteChanged = remote.updatedAt.isAfter(lastSynced);
+        if (localChanged && remoteChanged) {
+          local.syncStatus = SyncStatus.conflict;
+          notifyListeners();
+          if (context != null) {
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Conflit de synchronisation'),
+                content: Text('La note "${local.title}" a été modifiée localement ET dans le cloud. Quelle version garder ?'),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      await _syncService.pushNote(local, userId);
+                      local.syncStatus = SyncStatus.synced;
+                      local.lastSyncedAt = DateTime.now();
+                      Navigator.of(ctx).pop();
+                    },
+                    child: const Text('Garder local'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      local.title = remote.title;
+                      local.content = remote.content;
+                      local.tags = remote.tags;
+                      local.updatedAt = remote.updatedAt;
+                      local.syncStatus = SyncStatus.synced;
+                      local.lastSyncedAt = remote.updatedAt;
+                      local.deleted = remote.deleted;
+                      await local.saveToFile();
+                      Navigator.of(ctx).pop();
+                    },
+                    child: const Text('Garder cloud'),
+                  ),
+                ],
+              ),
+            );
+          }
+        } else if (remote.updatedAt.isAfter(local.updatedAt)) {
+          local.title = remote.title;
+          local.content = remote.content;
+          local.tags = remote.tags;
+          local.updatedAt = remote.updatedAt;
+          local.syncStatus = SyncStatus.synced;
+          local.lastSyncedAt = remote.updatedAt;
+          local.deleted = remote.deleted;
+          await local.saveToFile();
+        } else {
+          local.syncStatus = SyncStatus.synced;
+        }
+      }
+    }
+    // 4. Supprimer localement les notes marquées deleted dans le cloud
+    _notes.removeWhere((n) => n.deleted);
+    await _rebuildAndSaveTagsMapping();
+    notifyListeners();
   }
 } 

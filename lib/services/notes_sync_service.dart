@@ -79,12 +79,12 @@ class NotesSyncService {
       .subscribe();
   }
 
-  // Suppression cloud (soft delete)
+  // Suppression cloud (hard delete)
   Future<void> deleteNoteCloud(Note note, String userId) async {
     if (note.remoteId == null) return;
     try {
-      print('[SYNC] Suppression cloud (soft delete) pour la note: ${note.title}');
-      await supabase.from('notes').update({'deleted': true}).eq('id', note.remoteId!).eq('user_id', userId);
+      print('[SYNC] Suppression cloud (hard delete) pour la note: ${note.title}');
+      await supabase.from('notes').delete().eq('id', note.remoteId!).eq('user_id', userId);
     } catch (e) {
       print('[SYNC][ERROR] deleteNoteCloud: $e');
     }

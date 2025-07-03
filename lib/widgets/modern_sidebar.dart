@@ -107,9 +107,11 @@ class _ModernSidebarState extends State<ModernSidebar> {
                   setState(() => _syncing = true);
                   print('[DEBUG] Bouton synchro cliqué');
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                  // await notesProvider.forceSync(context: context); // désactivé en local
+                  await notesProvider.forceSync(context: context);
                   print('[DEBUG] Synchro terminée');
-                  await Future.delayed(const Duration(milliseconds: 500));
+                  if (context.mounted) {
+                    showAppSnackBar(context, 'Synchronisation terminée.');
+                  }
                   setState(() => _syncing = false);
                 },
                 enabled: true,

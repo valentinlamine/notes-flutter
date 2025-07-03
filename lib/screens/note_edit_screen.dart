@@ -65,7 +65,14 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
         content: content,
         tags: tags,
       );
-      await notesProvider.addNote(note);
+      try {
+        await notesProvider.addNote(note);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Impossible de créer la note : un fichier avec ce titre existe déjà.')),
+        );
+        return;
+      }
     } else {
       // Mettre à jour une note existante
       final updatedNote = Note(
@@ -105,7 +112,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
 
     if (confirmed == true) {
       await flutter_provider.Provider.of<NotesProvider>(context, listen: false)
-          .deleteNote(widget.note!.id!);
+          .deleteNote(widget.note!);
       Navigator.pop(context);
     }
   }
