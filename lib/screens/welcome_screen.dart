@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as flutter_provider;
 import '../services/notes_provider.dart';
 import 'home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,14 +25,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-      notesProvider.onDirectoryAccessError = () {
-        if (mounted) {
-          setState(() {
-            showDirectoryWarning = true;
-          });
-        }
-      };
+      final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
+      // notesProvider.onDirectoryAccessError = () { ... } // désactivé en local
     });
   }
 
@@ -40,7 +34,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final user = Supabase.instance.client.auth.currentUser;
-    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
     if (!_navigated && user != null && notesProvider.notesDirectory != null && notesProvider.directoryPermissionOk) {
       _navigated = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -54,7 +48,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
-    final notesProvider = Provider.of<NotesProvider>(context);
+    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context);
     void onSignedIn() => setState(() {});
     final theme = Theme.of(context);
 
@@ -119,7 +113,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (showDirectoryWarning)
+                  if (!notesProvider.directoryPermissionOk)
                     Container(
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(12),
@@ -144,7 +138,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   const SizedBox(height: 16),
                   Text('Choisissez le dossier où vos notes seront stockées.', style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
                   const SizedBox(height: 24),
-                  Consumer<NotesProvider>(
+                  flutter_provider.Consumer<NotesProvider>(
                     builder: (context, notesProvider, child) => ElevatedButton.icon(
                       icon: const Icon(Icons.folder_open),
                       label: const Text('Choisir un dossier de notes'),
@@ -154,12 +148,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                       onPressed: () async {
                         final result = await notesProvider.chooseNotesDirectory();
-                        if (result && context.mounted) {
-                          notesProvider.resetDirectoryAccessError();
-                          setState(() {
-                            showDirectoryWarning = false;
-                          });
-                        } else if (!result && context.mounted) {
+                        if (!result && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Aucun dossier sélectionné ou erreur.')),
                           );

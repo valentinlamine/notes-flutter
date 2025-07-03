@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as flutter_provider;
 import '../models/note.dart';
 import '../services/notes_provider.dart';
 import '../services/export_service.dart';
@@ -46,7 +46,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
   }
 
   Future<void> _saveNote(BuildContext context) async {
-    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     final tags = _parseTags(_tagsController.text);
@@ -104,7 +104,7 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
     );
 
     if (confirmed == true) {
-      await Provider.of<NotesProvider>(context, listen: false)
+      await flutter_provider.Provider.of<NotesProvider>(context, listen: false)
           .deleteNote(widget.note!.id!);
       Navigator.pop(context);
     }

@@ -17,6 +17,7 @@ class ModernSidebar extends StatefulWidget {
 
 class _ModernSidebarState extends State<ModernSidebar> {
   List<String> _selectedTags = [];
+  bool _syncing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -93,18 +94,31 @@ class _ModernSidebarState extends State<ModernSidebar> {
                 title: const Text('Changer de dossier'),
                 onTap: () async {
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                  await notesProvider.moveNotesToNewDirectory(context);
+                  final result = await notesProvider.moveNotesToNewDirectory(context);
+                  if (!result && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Erreur lors du changement de dossier.')),
+                    );
+                  }
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.sync),
+                leading: _syncing
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.sync),
                 title: const Text('Forcer la synchronisation'),
-                onTap: () async {
-                  print('[DEBUG] Bouton synchro cliqué');
-                  final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                  await notesProvider.forceSync(context: context);
-                  print('[DEBUG] Synchro terminée');
-                },
+                enabled: !_syncing,
+                onTap: _syncing
+                    ? null
+                    : () async {
+                        setState(() => _syncing = true);
+                        print('[DEBUG] Bouton synchro cliqué');
+                        final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                        // await notesProvider.forceSync(context: context); // désactivé en local
+                        print('[DEBUG] Synchro terminée');
+                        await Future.delayed(const Duration(milliseconds: 500));
+                        setState(() => _syncing = false);
+                      },
               ),
               ListTile(
                 leading: const Icon(Icons.refresh),

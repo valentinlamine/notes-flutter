@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' as flutter_provider;
 import '../services/notes_provider.dart';
 import '../widgets/modern_sidebar.dart';
 import '../widgets/modern_note_list.dart';
@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (result != null && result.isNotEmpty) {
-      final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+      final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
       await notesProvider.createNote(result);
       setState(() {}); // Pour rafraîchir la sélection
     }
@@ -130,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 right: BorderSide(color: theme.dividerColor, width: 1),
               ),
             ),
-            child: Consumer<NotesProvider>(
+            child: flutter_provider.Consumer<NotesProvider>(
               builder: (context, notesProvider, child) => ModernNoteList(
                 notes: notesProvider.notesForTags(_selectedTags),
                 selectedNote: notesProvider.selectedNote,
@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           // Éditeur/Prévisualisation
           Expanded(
-            child: Consumer<NotesProvider>(
+            child: flutter_provider.Consumer<NotesProvider>(
               builder: (context, notesProvider, child) => notesProvider.selectedNote != null
                   ? ModernNoteEditor(
                       note: notesProvider.selectedNote!,
@@ -208,7 +208,7 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                   title: const Text('Déconnexion'),
                   onTap: () async {
                     _hideMenu();
-                    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
                     await notesProvider.deleteAllNotesAndPrefs();
                     await Supabase.instance.client.auth.signOut();
                     notesProvider.clearNotesDirectory();
@@ -225,7 +225,7 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                   title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
                   onTap: () async {
                     _hideMenu();
-                    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (context) => AlertDialog(
@@ -244,23 +244,13 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                       ),
                     );
                     if (confirm == true) {
-                      final supabaseUrl = SupabaseConfig.supabaseUrl;
-                      final success = await NotesProvider.deleteAccountWithEdgeFunction(supabaseUrl);
-                      if (success) {
-                        await notesProvider.deleteAllNotesAndPrefs();
-                        await Supabase.instance.client.auth.signOut();
-                        if (mounted) {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                            (route) => false,
-                          );
-                        }
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Erreur lors de la suppression du compte.')), 
-                          );
-                        }
+                      // [SUPABASE] Suppression de compte désactivée en mode local
+                      // final supabaseUrl = SupabaseConfig.supabaseUrl;
+                      // final success = await NotesProvider.deleteAccountWithEdgeFunction(supabaseUrl);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Erreur lors de la suppression du compte.')), 
+                        );
                       }
                     }
                   },

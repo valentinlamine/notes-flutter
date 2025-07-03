@@ -3,6 +3,11 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
 import '../models/note.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import 'package:markdown/markdown.dart' as md;
 
 class ModernNoteEditor extends StatefulWidget {
   final Note? note;
@@ -66,7 +71,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
       setState(() {
         _tags.add(cleanTag);
       });
-      _saveNote(context);
+      _autosave();
     }
     _tagInputController.clear();
   }
@@ -75,21 +80,18 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     setState(() {
       _tags.remove(tag);
     });
-    _saveNote(context);
+    _autosave();
   }
 
-  void _saveNote(BuildContext context) async {
+  void _autosave() async {
     final notesProvider = Provider.of<NotesProvider>(context, listen: false);
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     final tags = List<String>.from(_tags);
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le titre ne peut pas être vide')),
-      );
-      return;
-    }
+    if (title.isEmpty || widget.note == null) return;
+    final oldTitle = widget.note!.title;
     final updatedNote = Note(
+      id: widget.note!.id,
       filePath: widget.note!.filePath,
       title: title,
       content: content,
@@ -97,7 +99,123 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
       createdAt: widget.note!.createdAt,
       updatedAt: DateTime.now(),
     );
-    widget.onNoteSaved(updatedNote);
+    if (title != oldTitle) {
+      try {
+        await notesProvider.saveNote(updatedNote, newTitle: title);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur lors du renommage du fichier : $e')),
+          );
+        }
+      }
+    } else {
+      await notesProvider.saveNote(updatedNote);
+    }
+  }
+
+  Future<void> _exportAsPdf() async {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    final pdf = pw.Document();
+    // Parse le markdown en AST
+    final nodes = md.Document().parseLines(content.split('\n'));
+    // Fonction récursive pour convertir AST markdown -> widgets PDF
+    List<pw.Widget> _renderMarkdown(List<md.Node> nodes) {
+      List<pw.Widget> widgets = [];
+      for (final node in nodes) {
+        if (node is md.Element) {
+          switch (node.tag) {
+            case 'h1':
+              widgets.add(pw.Text(node.textContent, style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)));
+              break;
+            case 'h2':
+              widgets.add(pw.Text(node.textContent, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)));
+              break;
+            case 'h3':
+              widgets.add(pw.Text(node.textContent, style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)));
+              break;
+            case 'ul':
+              widgets.add(
+                pw.Bullet(
+                  text: node.children!.map((li) => li.textContent).join('\n'),
+                  style: pw.TextStyle(fontSize: 14),
+                ),
+              );
+              break;
+            case 'ol':
+              for (int i = 0; i < node.children!.length; i++) {
+                widgets.add(pw.Row(children: [
+                  pw.Text('${i + 1}. ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  pw.Text(node.children![i].textContent, style: pw.TextStyle(fontSize: 14)),
+                ]));
+              }
+              break;
+            case 'blockquote':
+              widgets.add(
+                pw.Container(
+                  decoration: pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(width: 2))),
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: pw.Text(node.textContent, style: pw.TextStyle(fontStyle: pw.FontStyle.italic, fontSize: 14)),
+                ),
+              );
+              break;
+            case 'pre':
+              widgets.add(
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(8),
+                  margin: const pw.EdgeInsets.symmetric(vertical: 4),
+                  child: pw.Text(node.textContent, style: pw.TextStyle(font: pw.Font.courier(), fontSize: 12)),
+                ),
+              );
+              break;
+            case 'p':
+              widgets.add(pw.Text(node.textContent, style: pw.TextStyle(fontSize: 14)));
+              break;
+            default:
+              widgets.addAll(_renderMarkdown(node.children ?? []));
+          }
+        } else if (node is md.Text) {
+          widgets.add(pw.Text(node.text, style: pw.TextStyle(fontSize: 14)));
+        }
+      }
+      return widgets;
+    }
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(title, style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 16),
+            ..._renderMarkdown(nodes),
+          ],
+        ),
+      ),
+    );
+    String? outputPath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Enregistrer la note en PDF',
+      fileName: '$title.pdf',
+      allowedExtensions: ['pdf'],
+      type: FileType.custom,
+    );
+    if (outputPath == null) return;
+    if (!outputPath.endsWith('.pdf')) outputPath += '.pdf';
+    try {
+      final file = File(outputPath);
+      await file.writeAsBytes(await pdf.save());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF enregistré : $outputPath')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'export PDF : $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -148,7 +266,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                       maxLines: 1,
                       onChanged: (value) {
                         if (value.trim().isNotEmpty) {
-                          _saveNote(context);
+                          _autosave();
                         }
                       },
                     ),
@@ -202,7 +320,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                               onDeleted: () {
                                 _removeTag(tag);
                                 if (_titleController.text.trim().isNotEmpty) {
-                                  _saveNote(context);
+                                  _autosave();
                                 }
                               },
                               backgroundColor: color,
@@ -243,13 +361,13 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                             onSubmitted: (value) {
                               _addTag(value);
                               if (_titleController.text.trim().isNotEmpty) {
-                                _saveNote(context);
+                                _autosave();
                               }
                             },
                             onEditingComplete: () {
                               _addTag(_tagInputController.text);
                               if (_titleController.text.trim().isNotEmpty) {
-                                _saveNote(context);
+                                _autosave();
                               }
                             },
                           ),
@@ -267,8 +385,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                       child: IconButton(
                         icon: const Icon(Icons.folder_open, size: 20),
                         onPressed: () {
-                          final provider = Provider.of<NotesProvider>(context, listen: false);
-                          provider.revealInFinder(widget.note!);
+                          // provider.revealInFinder(widget.note!); // désactivé en local
                         },
                         tooltip: 'Ouvrir dans le Finder',
                         padding: const EdgeInsets.all(8),
@@ -277,13 +394,13 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: IconButton(
-                        icon: Icon(_previewMode ? Icons.edit : Icons.preview, size: 20),
+                        icon: Icon(_previewMode ? Icons.edit : Icons.visibility, size: 20),
                         onPressed: () {
                           setState(() {
                             _previewMode = !_previewMode;
                           });
                         },
-                        tooltip: _previewMode ? 'Mode édition' : 'Aperçu Markdown',
+                        tooltip: _previewMode ? 'Passer en mode édition' : 'Passer en mode aperçu',
                         padding: const EdgeInsets.all(8),
                       ),
                     ),
@@ -303,6 +420,15 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                           padding: const EdgeInsets.all(8),
                         ),
                       ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: IconButton(
+                        icon: const Icon(Icons.picture_as_pdf, size: 20),
+                        onPressed: _exportAsPdf,
+                        tooltip: 'Exporter en PDF',
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
                     // Bouton Fermer à droite
                     Padding(
                       padding: const EdgeInsets.only(left: 8.0),
@@ -356,7 +482,7 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                       style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.35),
                       onChanged: (_) {
                         if (_titleController.text.trim().isNotEmpty) {
-                          _saveNote(context);
+                          _autosave();
                         }
                       },
                     ),

@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:yaml/yaml.dart';
 import 'package:yaml/yaml.dart' as yaml;
+import 'package:uuid/uuid.dart';
 
 // Enum pour le statut de synchronisation
 enum SyncStatus { notSynced, syncing, synced, conflict }
 
 class Note {
+  String id;
   String filePath;
   String title;
   String content;
@@ -16,8 +18,10 @@ class Note {
   String? remoteId;
   SyncStatus syncStatus;
   DateTime? lastSyncedAt;
+  bool deleted;
 
   Note({
+    String? id,
     required this.filePath,
     required this.title,
     required this.content,
@@ -27,7 +31,9 @@ class Note {
     this.remoteId,
     this.syncStatus = SyncStatus.notSynced,
     this.lastSyncedAt,
-  })  : this.createdAt = createdAt ?? DateTime.now(),
+    this.deleted = false,
+  })  : this.id = id ?? const Uuid().v4(),
+        this.createdAt = createdAt ?? DateTime.now(),
         this.updatedAt = updatedAt ?? DateTime.now();
 
   static Future<Note> fromFile(File file) async {
@@ -37,12 +43,13 @@ class Note {
     List<String> tags = [];
     DateTime? createdAt;
     DateTime? updatedAt;
-
+    String? id;
     if (raw.startsWith('---')) {
       final end = raw.indexOf('---', 3);
       if (end != -1) {
         final frontmatter = raw.substring(3, end).trim();
         final yamlMap = loadYaml(frontmatter) as YamlMap;
+        id = yamlMap['id'] as String?;
         title = yamlMap['title'] ?? title;
         tags = (yamlMap['tags'] as YamlList?)?.cast<String>() ?? [];
         createdAt = yamlMap['createdAt'] != null ? DateTime.tryParse(yamlMap['createdAt'].toString()) : null;
@@ -51,6 +58,7 @@ class Note {
       }
     }
     return Note(
+      id: id,
       filePath: file.path,
       title: title,
       content: content,
@@ -64,6 +72,7 @@ class Note {
     final file = File(filePath);
     final buffer = StringBuffer();
     buffer.writeln('---');
+    buffer.writeln('id: $id');
     buffer.writeln('title: ${title.replaceAll(':', ' ')}');
     buffer.writeln('tags:');
     for (final tag in tags) {
@@ -86,6 +95,7 @@ class Note {
   // Conversion Map <-> Note pour Supabase
   factory Note.fromSupabase(Map<String, dynamic> map, {String? localFilePath}) {
     return Note(
+      id: map['id'] as String? ?? const Uuid().v4(),
       filePath: localFilePath ?? '',
       remoteId: map['id'] as String?,
       title: map['title'] as String? ?? '',
@@ -95,19 +105,21 @@ class Note {
       updatedAt: DateTime.tryParse(map['updated_at'] ?? '') ?? DateTime.now(),
       syncStatus: SyncStatus.synced,
       lastSyncedAt: DateTime.tryParse(map['updated_at'] ?? ''),
+      deleted: map['deleted'] == true,
     );
   }
 
   Map<String, dynamic> toSupabaseMap(String userId) {
-    return {
-      'id': remoteId,
+    final map = {
+      'id': id,
       'user_id': userId,
       'title': title,
       'content': content,
       'tags': tags,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'deleted': false,
+      'deleted': deleted,
     };
+    return map;
   }
 } 
