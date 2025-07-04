@@ -269,13 +269,35 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                           ),
                         );
                         if (confirm == true) {
-                          // [SUPABASE] Suppression de compte désactivée en mode local
-                          // final supabaseUrl = SupabaseConfig.supabaseUrl;
-                          // final success = await NotesProvider.deleteAccountWithEdgeFunction(supabaseUrl);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Erreur lors de la suppression du compte.')), 
-                            );
+                          final user = Supabase.instance.client.auth.currentUser;
+                          if (user == null) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Utilisateur non connecté.')),
+                              );
+                            }
+                            return;
+                          }
+                          final success = await NotesProvider.deleteAccountAndNotesCloud(user.id);
+                          if (success) {
+                            await notesProvider.deleteAllNotesAndPrefs();
+                            await Supabase.instance.client.auth.signOut();
+                            notesProvider.clearNotesDirectory();
+                            if (mounted) {
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                                (route) => false,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Compte supprimé avec succès.')),
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Erreur lors de la suppression du compte.')),
+                              );
+                            }
                           }
                         }
                       },

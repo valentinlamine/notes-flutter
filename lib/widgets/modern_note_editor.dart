@@ -199,20 +199,22 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
                     ),
                   ),
                 ),
-                NoteEditorActions(
-                  previewMode: _previewMode,
-                  isNewNote: widget.isNewNote,
-                  note: widget.note,
-                  onExportPdf: _exportAsPdf,
-                  onTogglePreview: () => setState(() => _previewMode = !_previewMode),
-                  onDelete: () async {
-                    final notesProvider = Provider.of<NotesProvider>(context, listen: false);
-                    if (widget.note != null) {
-                      await notesProvider.deleteNote(widget.note!, context: context);
-                      widget.onNoteDeleted();
-                    }
-                  },
-                  onClose: widget.onClose,
+                Flexible(
+                  child: NoteEditorActions(
+                    previewMode: _previewMode,
+                    isNewNote: widget.isNewNote,
+                    note: widget.note,
+                    onExportPdf: _exportAsPdf,
+                    onTogglePreview: () => setState(() => _previewMode = !_previewMode),
+                    onDelete: () async {
+                      final notesProvider = Provider.of<NotesProvider>(context, listen: false);
+                      if (widget.note != null) {
+                        await notesProvider.deleteNote(widget.note!, context: context);
+                        widget.onNoteDeleted();
+                      }
+                    },
+                    onClose: widget.onClose,
+                  ),
                 ),
               ],
             ),

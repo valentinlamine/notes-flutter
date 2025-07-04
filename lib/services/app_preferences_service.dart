@@ -24,7 +24,6 @@ class AppPreferencesService {
     final file = File(prefsFilePath(notesDirectory));
     try {
       await file.writeAsString(json.encode(prefs), flush: true);
-      print('Fichier .flutternotes.json écrit avec succès.');
     } catch (e) {
       print('Erreur lors de l\'écriture de .flutternotes.json : $e');
     }
@@ -37,7 +36,6 @@ class AppPreferencesService {
   }
 
   static Future<void> setTagsMapping(String notesDirectory, Map<String, List<String>> tagsMapping) async {
-    print('Écriture des tags dans $notesDirectory/.flutternotes.json : $tagsMapping');
     final prefs = await readPrefs(notesDirectory);
     prefs['tags'] = tagsMapping;
     await writePrefs(notesDirectory, prefs);

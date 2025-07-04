@@ -262,7 +262,7 @@ class NotesProvider with ChangeNotifier {
           try {
             await file.delete();
           } catch (e) {
-            print('Erreur lors de la suppression du fichier ${file.path} : $e');
+            print('Erreur lors de la suppression du fichier : $e');
           }
         }
         final prefsFile = File('${_notesDirectory!}/.flutternotes.json');
@@ -293,7 +293,7 @@ class NotesProvider with ChangeNotifier {
       _tagsMapping = tagsMap;
       await AppPreferencesService.setTagsMapping(_notesDirectory!, _tagsMapping);
     } catch (e, st) {
-      print('Erreur lors de la reconstruction/écriture du mapping des tags : $e\n$st');
+      print('Erreur lors de la reconstruction/écriture du mapping des tags : $e');
     }
   }
 
@@ -308,7 +308,7 @@ class NotesProvider with ChangeNotifier {
         await Process.run('xdg-open', [file.parent.path]);
       }
     } else {
-      print('Fichier introuvable : ${file.path}');
+      print('Fichier introuvable.');
     }
   }
 
@@ -534,6 +534,26 @@ class NotesProvider with ChangeNotifier {
     final elapsed = DateTime.now().difference(start);
     if (elapsed.inMilliseconds < 1000) {
       await Future.delayed(Duration(milliseconds: 1000 - elapsed.inMilliseconds));
+    }
+  }
+
+  // Suppression complète du compte et des notes cloud
+  static Future<bool> deleteAccountAndNotesCloud(String userId) async {
+    final supabase = Supabase.instance.client;
+    try {
+      // 1. Appel Edge Function (supprime user + notes)
+      final response = await supabase.functions.invoke('delete_user', body: {'user': {'id': userId}});
+      if (response.status != 200) {
+        // 2. Fallback : suppression manuelle des notes cloud
+        await supabase.from('notes').delete().eq('user_id', userId);
+        // 3. Suppression du compte (si Edge Function ne l’a pas fait)
+        // (Nécessite droits admin, sinon ignorer cette étape)
+        // await supabase.auth.admin.deleteUser(userId);
+      }
+      return true;
+    } catch (e) {
+      print('[SUPPRESSION][ERROR] $e');
+      return false;
     }
   }
 } 

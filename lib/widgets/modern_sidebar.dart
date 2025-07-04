@@ -103,10 +103,8 @@ class _ModernSidebarState extends State<ModernSidebar> {
                 onTap: () async {
                   if (_syncing) return;
                   setState(() => _syncing = true);
-                  print('[DEBUG] Bouton synchro cliqué');
                   final notesProvider = Provider.of<NotesProvider>(context, listen: false);
                   await notesProvider.forceSync(context: context);
-                  print('[DEBUG] Synchro terminée');
                   if (context.mounted) {
                     showAppSnackBar(context, 'Synchronisation terminée.');
                   }
