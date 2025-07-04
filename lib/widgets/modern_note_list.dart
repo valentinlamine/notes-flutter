@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/notes_provider.dart';
 import '../models/note.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:intl/intl.dart';
 
 class ModernNoteList extends StatelessWidget {
   final List<Note> notes;
@@ -103,7 +104,6 @@ class ModernNoteList extends StatelessWidget {
                                   _buildSyncStatusIcon(context, note.syncStatus),
                                 ],
                               ),
-                              const SizedBox(height: 4),
                               Container(
                                 constraints: const BoxConstraints(maxHeight: 54),
                                 child: ClipRect(
@@ -123,6 +123,19 @@ class ModernNoteList extends StatelessWidget {
                                     shrinkWrap: true,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Expanded(child: Container()),
+                                  Text(
+                                    _formatEditDate(note.updatedAt),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -163,5 +176,21 @@ class ModernNoteList extends StatelessWidget {
         break;
     }
     return Tooltip(message: message, child: icon);
+  }
+
+  String _formatEditDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateDay = DateTime(date.year, date.month, date.day);
+    if (dateDay == today) {
+      // Aujourd'hui : juste l'heure
+      return DateFormat.Hm().format(date);
+    } else if (now.difference(date).inDays < 7 && now.weekday >= date.weekday) {
+      // Cette semaine : jour + heure
+      return '${DateFormat.EEEE().format(date)} ${DateFormat.Hm().format(date)}';
+    } else {
+      // Sinon : date courte
+      return DateFormat('dd/MM/yy').format(date);
+    }
   }
 } 

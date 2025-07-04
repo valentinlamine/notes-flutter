@@ -164,6 +164,8 @@ class NotesProvider with ChangeNotifier {
   }
 
   Future<void> saveNote(Note note, {String? newTitle, BuildContext? context}) async {
+    // On ne modifie que la note passée en paramètre
+    final oldMinute = note.updatedAt.minute;
     note.updatedAt = DateTime.now();
     note.lastModifiedBy = _deviceId ?? '';
     if (newTitle != null && newTitle.trim().isNotEmpty && newTitle != note.title) {
@@ -182,6 +184,9 @@ class NotesProvider with ChangeNotifier {
     await _ensureNoteHeader(note);
     try {
       await note.saveToFile();
+      if (note.updatedAt.minute != oldMinute) {
+        debugPrint('[saveNote] Note sauvegardée: id=${note.id}, title=${note.title}, updatedAt=${note.updatedAt}');
+      }
     } catch (e) {
       // Catch toute erreur d'écriture fichier
     }
@@ -440,7 +445,8 @@ class NotesProvider with ChangeNotifier {
     // 1. Pousser toutes les notes locales modifiées/non synchronisées
     for (final note in _notes) {
       try {
-        if (note.syncStatus != SyncStatus.synced) {
+        final shouldSync = note.syncStatus != SyncStatus.synced || (note.lastSyncedAt == null || note.updatedAt.isAfter(note.lastSyncedAt!));
+        if (shouldSync) {
           note.syncStatus = SyncStatus.syncing;
           notifyListeners();
           await _syncService.pushNote(note, userId);
