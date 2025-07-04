@@ -30,7 +30,6 @@ class NotesSyncService {
         note.lastSyncedAt = DateTime.tryParse(response['updated_at'] ?? '');
       }
     } catch (e) {
-      print('[SYNC][ERROR] pushNote: $e');
       rethrow;
     }
   }

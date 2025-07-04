@@ -25,7 +25,7 @@ class AppPreferencesService {
     try {
       await file.writeAsString(json.encode(prefs), flush: true);
     } catch (e) {
-      print('Erreur lors de l\'écriture de .flutternotes.json : $e');
+      // Erreur lors de l'écriture de .flutternotes.json (silencieux en prod)
     }
   }
 

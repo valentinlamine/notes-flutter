@@ -262,20 +262,20 @@ class NotesProvider with ChangeNotifier {
           try {
             await file.delete();
           } catch (e) {
-            print('Erreur lors de la suppression du fichier : $e');
+            // Erreur lors de la suppression du fichier (silencieux en prod)
           }
         }
         final prefsFile = File('${_notesDirectory!}/.flutternotes.json');
         if (await prefsFile.exists()) {
-          try { await prefsFile.delete(); } catch (e) { print('Erreur suppression prefs : $e'); }
+          try { await prefsFile.delete(); } catch (e) {/* ignore */}
         }
         final metaFile = File('${_notesDirectory!}/.flutternotesmeta.json');
         if (await metaFile.exists()) {
-          try { await metaFile.delete(); } catch (e) { print('Erreur suppression meta : $e'); }
+          try { await metaFile.delete(); } catch (e) {/* ignore */}
         }
       }
     } catch (e) {
-      print('Erreur lors de la suppression des fichiers utilisateur : $e');
+      // Erreur lors de la suppression des fichiers utilisateur (silencieux en prod)
     }
     clearNotesDirectory();
   }
@@ -293,7 +293,7 @@ class NotesProvider with ChangeNotifier {
       _tagsMapping = tagsMap;
       await AppPreferencesService.setTagsMapping(_notesDirectory!, _tagsMapping);
     } catch (e, st) {
-      print('Erreur lors de la reconstruction/écriture du mapping des tags : $e');
+      // Erreur lors de la reconstruction/écriture du mapping des tags (silencieux en prod)
     }
   }
 
@@ -308,7 +308,7 @@ class NotesProvider with ChangeNotifier {
         await Process.run('xdg-open', [file.parent.path]);
       }
     } else {
-      print('Fichier introuvable.');
+      // Fichier introuvable (silencieux en prod)
     }
   }
 
@@ -353,7 +353,7 @@ class NotesProvider with ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('[ERROR] Erreur lors du transfert des notes : $e');
+      // Erreur lors du transfert des notes (silencieux en prod)
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors du transfert : $e')),
@@ -398,7 +398,7 @@ class NotesProvider with ChangeNotifier {
         }
         return;
       } catch (e) {
-        print('[SYNC][ERROR] pushNote: $e');
+        // Erreur de synchro (affichée en SnackBar)
         if (context != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Erreur de synchronisation : $e')),
@@ -424,7 +424,7 @@ class NotesProvider with ChangeNotifier {
       }
       return;
     } catch (e) {
-      print('[SYNC][ERROR] pullNotes: $e');
+      // Erreur de synchro (affichée en SnackBar)
       if (context != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur de synchronisation : $e')),
