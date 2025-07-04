@@ -194,79 +194,98 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
     final RenderBox renderBox = _key.currentContext!.findRenderObject() as RenderBox;
     final Offset offset = renderBox.localToGlobal(Offset.zero);
     final Size size = renderBox.size;
+    final screenHeight = MediaQuery.of(context).size.height;
+    double menuTop = offset.dy + size.height + 8;
+    const double menuHeight = 120; // hauteur estimée du menu
+    if (menuTop + menuHeight > screenHeight) {
+      // Si le menu dépasse le bas de l'écran, affiche-le au-dessus
+      menuTop = offset.dy - menuHeight - 8;
+    }
     _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: offset.dx,
-        top: offset.dy - 80,
-        child: Material(
-          elevation: 8,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: size.width,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.logout),
-                  title: const Text('Déconnexion'),
-                  onTap: () async {
-                    _hideMenu();
-                    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
-                    await notesProvider.deleteAllNotesAndPrefs();
-                    await Supabase.instance.client.auth.signOut();
-                    notesProvider.clearNotesDirectory();
-                    if (mounted) {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                        (route) => false,
-                      );
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.delete, color: Colors.red),
-                  title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
-                  onTap: () async {
-                    _hideMenu();
-                    final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Supprimer le compte'),
-                        content: const Text('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Annuler'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      // [SUPABASE] Suppression de compte désactivée en mode local
-                      // final supabaseUrl = SupabaseConfig.supabaseUrl;
-                      // final success = await NotesProvider.deleteAccountWithEdgeFunction(supabaseUrl);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Erreur lors de la suppression du compte.')), 
-                        );
-                      }
-                    }
-                  },
-                ),
-              ],
+      builder: (context) => Stack(
+        children: [
+          // Zone de clic pour fermer le menu
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _hideMenu,
+              behavior: HitTestBehavior.translucent,
             ),
           ),
-        ),
+          // Le menu lui-même
+          Positioned(
+            left: offset.dx,
+            top: menuTop,
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: size.width,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.logout),
+                      title: const Text('Déconnexion'),
+                      onTap: () async {
+                        _hideMenu();
+                        final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
+                        await notesProvider.deleteAllNotesAndPrefs();
+                        await Supabase.instance.client.auth.signOut();
+                        notesProvider.clearNotesDirectory();
+                        if (mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.delete, color: Colors.red),
+                      title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                      onTap: () async {
+                        _hideMenu();
+                        final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Supprimer le compte'),
+                            content: const Text('Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Annuler'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          // [SUPABASE] Suppression de compte désactivée en mode local
+                          // final supabaseUrl = SupabaseConfig.supabaseUrl;
+                          // final success = await NotesProvider.deleteAccountWithEdgeFunction(supabaseUrl);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Erreur lors de la suppression du compte.')), 
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
     Overlay.of(context).insert(_overlayEntry!);
