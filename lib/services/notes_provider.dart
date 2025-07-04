@@ -158,6 +158,8 @@ class NotesProvider with ChangeNotifier {
     await note.saveToFile();
     await loadNotes();
     selectNote(note);
+    _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    notifyListeners();
     if (context != null) await _syncWithDelay(context);
   }
 
@@ -178,7 +180,11 @@ class NotesProvider with ChangeNotifier {
       note.title = newTitle;
     }
     await _ensureNoteHeader(note);
-    await note.saveToFile();
+    try {
+      await note.saveToFile();
+    } catch (e) {
+      // Catch toute erreur d'écriture fichier
+    }
     final index = _notes.indexWhere((n) => n.id == note.id);
     if (index != -1) {
       _notes[index] = note;
@@ -187,20 +193,63 @@ class NotesProvider with ChangeNotifier {
     _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     await _rebuildAndSaveTagsMapping();
     selectNote(note);
-    notifyListeners();
+    notifyListeners(); // Force l'UI à se mettre à jour immédiatement
     if (context != null) await _syncWithDelay(context);
   }
 
-  Future<void> deleteNote(Note note, {BuildContext? context}) async {
+  Future<bool> deleteNote(Note note, {BuildContext? context}) async {
+    debugPrint('[deleteNote] Début suppression note: ${note.title} (id: ${note.id}, remoteId: ${note.remoteId})');
     final user = Supabase.instance.client.auth.currentUser;
+    // 1. Suppression cloud si possible
     if (user != null && note.remoteId != null) {
-      await _syncService.deleteNoteCloud(note, user.id);
+      try {
+        debugPrint('[deleteNote] Tentative suppression cloud...');
+        await _syncService.deleteNoteCloud(note, user.id);
+        debugPrint('[deleteNote] Suppression cloud OK');
+      } catch (e, st) {
+        debugPrint('[deleteNote] Erreur suppression cloud: $e\n$st');
+        if (context != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur lors de la suppression cloud : $e')),
+          );
+        }
+        return false;
+      }
     }
-    // Suppression locale
-    await note.deleteFile();
+    // 2. Suppression locale
+    try {
+      debugPrint('[deleteNote] Tentative suppression locale...');
+      await note.deleteFile();
+      debugPrint('[deleteNote] Suppression locale OK');
+    } catch (e, st) {
+      debugPrint('[deleteNote] Erreur suppression locale: $e\n$st');
+      if (context != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la suppression locale : $e')),
+        );
+      }
+      // On continue pour retirer la note de la liste
+    }
     _notes.removeWhere((n) => n.id == note.id);
+    // 3. Fermer la note si sélectionnée
+    if (_selectedNote?.id == note.id) {
+      debugPrint('[deleteNote] Note supprimée était sélectionnée, fermeture.');
+      _selectedNote = null;
+    }
+    // 4. Notifier l'UI
     notifyListeners();
-    if (context != null) await _syncWithDelay(context);
+    // 5. Forcer une synchro
+    if (context != null) {
+      try {
+        debugPrint('[deleteNote] Force sync après suppression...');
+        await _syncWithDelay(context);
+        debugPrint('[deleteNote] Force sync OK');
+      } catch (e, st) {
+        debugPrint('[deleteNote] Erreur force sync: $e\n$st');
+      }
+    }
+    debugPrint('[deleteNote] Suppression terminée');
+    return true;
   }
 
   void selectNote(Note? note) {
@@ -236,8 +285,18 @@ class NotesProvider with ChangeNotifier {
     if (File(filePath).existsSync()) {
       throw Exception('Une note avec ce nom existe déjà.');
     }
-    final note = Note(filePath: filePath, title: title, content: content, tags: []);
-    await _ensureNoteHeader(note);
+    final note = Note(
+      filePath: filePath,
+      title: title,
+      content: content,
+      tags: [],
+      id: const Uuid().v4(),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      lastModifiedBy: _deviceId ?? '',
+      syncStatus: SyncStatus.notSynced,
+    );
+    debugPrint('[importNote] Nouvelle note importée: id= note.id}, title=${note.title}, lastModifiedBy=${note.lastModifiedBy}');
     await note.saveToFile();
     await loadNotes();
     selectNote(note);
@@ -552,7 +611,6 @@ class NotesProvider with ChangeNotifier {
       }
       return true;
     } catch (e) {
-      print('[SUPPRESSION][ERROR] $e');
       return false;
     }
   }

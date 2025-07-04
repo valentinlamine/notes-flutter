@@ -235,7 +235,11 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                         _hideMenu();
                         final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
                         await notesProvider.deleteAllNotesAndPrefs();
-                        await Supabase.instance.client.auth.signOut();
+                        try {
+                          await Supabase.instance.client.auth.signOut();
+                        } catch (e) {
+                          // Silencieux, l'utilisateur est déjà supprimé
+                        }
                         notesProvider.clearNotesDirectory();
                         if (mounted) {
                           Navigator.of(context).pushAndRemoveUntil(
@@ -281,7 +285,11 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                           final success = await NotesProvider.deleteAccountAndNotesCloud(user.id);
                           if (success) {
                             await notesProvider.deleteAllNotesAndPrefs();
-                            await Supabase.instance.client.auth.signOut();
+                            try {
+                              await Supabase.instance.client.auth.signOut();
+                            } catch (e) {
+                              // Silencieux, l'utilisateur est déjà supprimé
+                            }
                             notesProvider.clearNotesDirectory();
                             if (mounted) {
                               Navigator.of(context).pushAndRemoveUntil(
