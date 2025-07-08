@@ -5,7 +5,6 @@ import 'package:realtime_client/realtime_client.dart';
 class NotesSyncService {
   final supabase = Supabase.instance.client;
 
-  // Push une note locale vers Supabase (insert ou update)
   Future<void> pushNote(Note note, String userId) async {
     try {
       if (note.remoteId == null) {
@@ -34,23 +33,18 @@ class NotesSyncService {
     }
   }
 
-  // Pull toutes les notes du cloud pour l'utilisateur
   Future<List<Note>> pullNotes(String userId) async {
     final response = await supabase.from('notes').select().eq('user_id', userId).eq('deleted', false);
     return (response as List).map((map) => Note.fromSupabase(map)).toList();
   }
 
-  // Résoudre un conflit (choix local ou distant)
   Future<void> resolveConflict(Note local, Note remote, bool keepLocal, String userId) async {
     if (keepLocal) {
       await pushNote(local, userId);
     } else {
-      // Remplacer local par distant (à gérer dans NotesProvider)
-      // Ici, on ne fait rien côté cloud
     }
   }
 
-  // S'abonner aux changements temps réel
   void subscribeToRealtime(String userId, void Function(Note) onRemoteChange) {
     supabase.channel('public:notes')
       .on(
@@ -71,7 +65,6 @@ class NotesSyncService {
       .subscribe();
   }
 
-  // Suppression cloud (hard delete)
   Future<void> deleteNoteCloud(Note note, String userId) async {
     if (note.remoteId == null) return;
     try {

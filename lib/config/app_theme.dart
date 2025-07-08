@@ -6,7 +6,7 @@ class AppTheme {
       brightness: Brightness.light,
       useMaterial3: true,
       colorScheme: ColorScheme.light(
-        primary: Color(0xFF7C5CFA), // Accent violet discret
+        primary: Color(0xFF7C5CFA),
         secondary: Color(0xFFB3B3B3),
         background: Color(0xFFF8F9FB),
         surface: Color(0xFFFFFFFF),

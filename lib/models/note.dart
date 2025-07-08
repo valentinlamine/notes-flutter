@@ -3,7 +3,6 @@ import 'package:yaml/yaml.dart';
 import 'package:yaml/yaml.dart' as yaml;
 import 'package:uuid/uuid.dart';
 
-// Enum pour le statut de synchronisation
 enum SyncStatus { notSynced, syncing, synced, conflict }
 
 class Note {
@@ -14,7 +13,6 @@ class Note {
   List<String> tags;
   DateTime createdAt;
   DateTime updatedAt;
-  // Champs pour la synchro cloud
   String? remoteId;
   SyncStatus syncStatus;
   DateTime? lastSyncedAt;
@@ -98,7 +96,6 @@ class Note {
     }
   }
 
-  // Conversion Map <-> Note pour Supabase
   factory Note.fromSupabase(Map<String, dynamic> map, {String? localFilePath}) {
     return Note(
       id: map['id'] as String? ?? const Uuid().v4(),

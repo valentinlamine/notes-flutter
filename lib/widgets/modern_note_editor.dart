@@ -118,7 +118,6 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     final pdf = pw.Document();
-    // Parse le markdown en AST
     final nodes = md.Document().parseLines(content.split('\n'));
     final pdfWidgets = renderMarkdownToPdfWidgets(nodes);
     pdf.addPage(
@@ -158,7 +157,6 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header sobre et unifié
           Container(
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -169,7 +167,6 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Titre flottant, padding généreux
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -219,7 +216,6 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
               ],
             ),
           ),
-          // Champ d'ajout/suppression de tags
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: NoteTagsEditor(
@@ -235,7 +231,6 @@ class _ModernNoteEditorState extends State<ModernNoteEditor> {
             ),
           ),
           const SizedBox(height: 8),
-          // Contenu
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),

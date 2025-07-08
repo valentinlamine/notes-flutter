@@ -58,7 +58,7 @@ class ModernNoteList extends StatelessWidget {
                           color: isSelected
                               ? Theme.of(context).colorScheme.primary
                               : Colors.transparent,
-                          width: 2, // Fixe l'épaisseur pour éviter le "jump"
+                          width: 2,
                         ),
                         boxShadow: [
                           if (isSelected)
@@ -77,7 +77,6 @@ class ModernNoteList extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        // Fixe la hauteur minimale pour toutes les cards
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(minHeight: 80),
                           child: Column(

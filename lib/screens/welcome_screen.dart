@@ -26,7 +26,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
-      // notesProvider.onDirectoryAccessError = () { ... } // désactivé en local
     });
   }
 
@@ -52,7 +51,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     void onSignedIn() => setState(() {});
     final theme = Theme.of(context);
 
-    // 1. Non connecté : login/signup avec branding et message de bienvenue
     if (user == null) {
       return Scaffold(
         body: Center(
@@ -90,7 +88,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       );
     }
 
-    // 2. Connecté mais pas de dossier OU dossier inaccessible : page de sélection de dossier
     if (notesProvider.notesDirectory == null || !notesProvider.directoryPermissionOk) {
       return Scaffold(
         body: Center(
@@ -164,7 +161,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       );
     }
 
-    // 3. Tout est ok : redirection automatique
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     );

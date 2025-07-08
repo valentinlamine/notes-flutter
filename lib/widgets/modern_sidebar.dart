@@ -8,6 +8,7 @@ import 'package:file_selector/file_selector.dart';
 import '../utils/snackbar_utils.dart';
 import 'sidebar/tag_filter_list.dart';
 import 'sidebar/sidebar_action_tile.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class ModernSidebar extends StatefulWidget {
   final Function(List<String>) onTagsSelected;
@@ -32,14 +33,18 @@ class _ModernSidebarState extends State<ModernSidebar> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.note_outlined,
-                      color: Theme.of(context).primaryColor,
+                    SvgPicture.asset(
+                      'assets/logo.svg',
+                      height: 28,
+                      width: 28,
+                      colorFilter: ColorFilter.mode(
+                        Theme.of(context).primaryColor,
+                        BlendMode.srcIn,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -69,7 +74,6 @@ class _ModernSidebarState extends State<ModernSidebar> {
                 icon: Icons.upload_file,
                 text: 'Importer une note',
                 onTap: () async {
-                  // Ouvre un dialogue natif pour sélectionner un fichier .txt ou .md
                   final typeGroup = XTypeGroup(
                     label: 'Notes',
                     extensions: ['txt', 'md'],

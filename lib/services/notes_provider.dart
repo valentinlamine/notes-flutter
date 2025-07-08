@@ -10,7 +10,7 @@ import 'package:process_run/process_run.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-import 'notes_sync_service.dart'; // Pour la synchro cloud
+import 'notes_sync_service.dart';
 import 'dart:async';
 import 'package:uuid/uuid.dart';
 import '../screens/welcome_screen.dart';
@@ -50,7 +50,6 @@ class NotesProvider with ChangeNotifier {
     if (savedDir != null && Directory(savedDir).existsSync()) {
       _notesDirectory = savedDir;
       await loadNotes();
-      // Synchro auto au démarrage si utilisateur connecté
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         await forceSync();
@@ -66,7 +65,6 @@ class NotesProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, directory);
       await loadNotes();
-      // Synchro auto après ouverture du dossier si utilisateur connecté
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         await forceSync();
@@ -84,14 +82,12 @@ class NotesProvider with ChangeNotifier {
     try {
       if (!await dir.exists()) throw Exception('Dossier introuvable');
       hasDirectoryPermission = true;
-      // Sauvegarde l'état de sync des notes déjà en mémoire
       final Map<String, SyncStatus> oldStatus = { for (var n in _notes) n.id : n.syncStatus };
       final Map<String, DateTime?> oldLastSynced = { for (var n in _notes) n.id : n.lastSyncedAt };
       final files = dir.listSync().whereType<File>().where((f) => f.path.endsWith('.md')).toList();
       _notes = await Future.wait(files.map((f) async {
         final note = await Note.fromFile(f);
         await _ensureNoteHeader(note);
-        // Restaure le statut de sync si déjà connu
         note.syncStatus = oldStatus[note.id] ?? SyncStatus.notSynced;
         note.lastSyncedAt = oldLastSynced[note.id];
         return note;
@@ -183,7 +179,6 @@ class NotesProvider with ChangeNotifier {
     try {
       await note.saveToFile();
     } catch (e) {
-      // Catch toute erreur d'écriture fichier
     }
     final index = _notes.indexWhere((n) => n.id == note.id);
     if (index != -1) {
@@ -193,14 +188,13 @@ class NotesProvider with ChangeNotifier {
     _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     await _rebuildAndSaveTagsMapping();
     selectNote(note);
-    notifyListeners(); // Force l'UI à se mettre à jour immédiatement
+    notifyListeners();
     if (context != null) await _syncWithDelay(context);
   }
 
   Future<bool> deleteNote(Note note, {BuildContext? context}) async {
     debugPrint('[deleteNote] Début suppression note: ${note.title} (id: ${note.id}, remoteId: ${note.remoteId})');
     final user = Supabase.instance.client.auth.currentUser;
-    // 1. Suppression cloud si possible
     if (user != null && note.remoteId != null) {
       try {
         debugPrint('[deleteNote] Tentative suppression cloud...');
@@ -216,7 +210,6 @@ class NotesProvider with ChangeNotifier {
         return false;
       }
     }
-    // 2. Suppression locale
     try {
       debugPrint('[deleteNote] Tentative suppression locale...');
       await note.deleteFile();
@@ -228,17 +221,13 @@ class NotesProvider with ChangeNotifier {
           SnackBar(content: Text('Erreur lors de la suppression locale : $e')),
         );
       }
-      // On continue pour retirer la note de la liste
     }
     _notes.removeWhere((n) => n.id == note.id);
-    // 3. Fermer la note si sélectionnée
     if (_selectedNote?.id == note.id) {
       debugPrint('[deleteNote] Note supprimée était sélectionnée, fermeture.');
       _selectedNote = null;
     }
-    // 4. Notifier l'UI
     notifyListeners();
-    // 5. Forcer une synchro
     if (context != null) {
       try {
         debugPrint('[deleteNote] Force sync après suppression...');
@@ -321,7 +310,6 @@ class NotesProvider with ChangeNotifier {
           try {
             await file.delete();
           } catch (e) {
-            // Erreur lors de la suppression du fichier (silencieux en prod)
           }
         }
         final prefsFile = File('${_notesDirectory!}/.flutternotes.json');
@@ -334,7 +322,6 @@ class NotesProvider with ChangeNotifier {
         }
       }
     } catch (e) {
-      // Erreur lors de la suppression des fichiers utilisateur (silencieux en prod)
     }
     clearNotesDirectory();
   }
@@ -352,7 +339,6 @@ class NotesProvider with ChangeNotifier {
       _tagsMapping = tagsMap;
       await AppPreferencesService.setTagsMapping(_notesDirectory!, _tagsMapping);
     } catch (e, st) {
-      // Erreur lors de la reconstruction/écriture du mapping des tags (silencieux en prod)
     }
   }
 
@@ -367,7 +353,6 @@ class NotesProvider with ChangeNotifier {
         await Process.run('xdg-open', [file.parent.path]);
       }
     } else {
-      // Fichier introuvable (silencieux en prod)
     }
   }
 
@@ -379,13 +364,11 @@ class NotesProvider with ChangeNotifier {
     final newDir = Directory(newDirPath);
     try {
       if (!await newDir.exists()) await newDir.create(recursive: true);
-      // Copie toutes les notes .md
       final noteFiles = oldDir.listSync().whereType<File>().where((f) => f.path.endsWith('.md'));
       for (final file in noteFiles) {
         final newFile = File(p.join(newDirPath, p.basename(file.path)));
         await file.copy(newFile.path);
       }
-      // Copie les fichiers de prefs/meta
       final prefsFile = File(p.join(_notesDirectory!, '.flutternotes.json'));
       if (await prefsFile.exists()) {
         await prefsFile.copy(p.join(newDirPath, '.flutternotes.json'));
@@ -394,12 +377,10 @@ class NotesProvider with ChangeNotifier {
       if (await metaFile.exists()) {
         await metaFile.copy(p.join(newDirPath, '.flutternotesmeta.json'));
       }
-      // Met à jour le chemin dans les prefs
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, newDirPath);
       _notesDirectory = newDirPath;
       await loadNotes();
-      // Synchro auto après changement de dossier si utilisateur connecté
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         await forceSync();
@@ -412,7 +393,6 @@ class NotesProvider with ChangeNotifier {
       }
       return true;
     } catch (e) {
-      // Erreur lors du transfert des notes (silencieux en prod)
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors du transfert : $e')),
@@ -437,7 +417,6 @@ class NotesProvider with ChangeNotifier {
       return;
     }
     final userId = user.id;
-    // 1. Pousser toutes les notes locales modifiées/non synchronisées
     for (final note in _notes) {
       try {
         if (note.syncStatus != SyncStatus.synced) {
@@ -457,7 +436,6 @@ class NotesProvider with ChangeNotifier {
         }
         return;
       } catch (e) {
-        // Erreur de synchro (affichée en SnackBar)
         if (context != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Erreur de synchronisation : $e')),
@@ -467,7 +445,6 @@ class NotesProvider with ChangeNotifier {
         notifyListeners();
       }
     }
-    // 2. Récupérer toutes les notes du cloud
     List<Note> remoteNotes = [];
     try {
       remoteNotes = await _syncService.pullNotes(userId);
@@ -483,7 +460,6 @@ class NotesProvider with ChangeNotifier {
       }
       return;
     } catch (e) {
-      // Erreur de synchro (affichée en SnackBar)
       if (context != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur de synchronisation : $e')),
@@ -491,11 +467,9 @@ class NotesProvider with ChangeNotifier {
       }
       return;
     }
-    // 3. Fusionner local et cloud
     for (final remote in remoteNotes) {
       final localIdx = _notes.indexWhere((n) => n.id == remote.id);
       if (localIdx == -1) {
-        // Nouvelle note distante, ajouter localement
         final newNote = Note(
           id: remote.id,
           filePath: '$_notesDirectory/${remote.title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.md',
@@ -574,10 +548,8 @@ class NotesProvider with ChangeNotifier {
         }
       }
     }
-    // 4. Supprimer localement les notes marquées deleted dans le cloud
     _notes.removeWhere((n) => n.deleted);
     await _rebuildAndSaveTagsMapping();
-    // S'assurer que toutes les notes non supprimées et non en conflit sont bien marquées comme synchronisées
     for (final note in _notes) {
       if (!note.deleted && note.syncStatus != SyncStatus.conflict) {
         note.syncStatus = SyncStatus.synced;
@@ -587,7 +559,6 @@ class NotesProvider with ChangeNotifier {
   }
 
   Future<void> _syncWithDelay(BuildContext context) async {
-    // Affiche l'icône de synchro pendant au moins 1 seconde
     final start = DateTime.now();
     await forceSync(context: context);
     final elapsed = DateTime.now().difference(start);
@@ -596,18 +567,12 @@ class NotesProvider with ChangeNotifier {
     }
   }
 
-  // Suppression complète du compte et des notes cloud
   static Future<bool> deleteAccountAndNotesCloud(String userId) async {
     final supabase = Supabase.instance.client;
     try {
-      // 1. Appel Edge Function (supprime user + notes)
       final response = await supabase.functions.invoke('delete_user', body: {'user': {'id': userId}});
       if (response.status != 200) {
-        // 2. Fallback : suppression manuelle des notes cloud
         await supabase.from('notes').delete().eq('user_id', userId);
-        // 3. Suppression du compte (si Edge Function ne l’a pas fait)
-        // (Nécessite droits admin, sinon ignorer cette étape)
-        // await supabase.auth.admin.deleteUser(userId);
       }
       return true;
     } catch (e) {

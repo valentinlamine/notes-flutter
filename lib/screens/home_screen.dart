@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final notesProvider = flutter_provider.Provider.of<NotesProvider>(context, listen: false);
       try {
         await notesProvider.createNote(result, context: context);
-        setState(() {}); // Pour rafraîchir la sélection
+        setState(() {});
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -102,7 +102,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: Row(
         children: [
-          // Sidebar + bandeau utilisateur
           Container(
             width: 220,
             decoration: BoxDecoration(
@@ -129,7 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          // Liste des notes
           Container(
             width: 300,
             decoration: BoxDecoration(
@@ -147,7 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          // Éditeur/Prévisualisation
           Expanded(
             child: flutter_provider.Consumer<NotesProvider>(
               builder: (context, notesProvider, child) => notesProvider.selectedNote != null
@@ -196,22 +193,19 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
     final Size size = renderBox.size;
     final screenHeight = MediaQuery.of(context).size.height;
     double menuTop = offset.dy + size.height + 8;
-    const double menuHeight = 120; // hauteur estimée du menu
+    const double menuHeight = 120;
     if (menuTop + menuHeight > screenHeight) {
-      // Si le menu dépasse le bas de l'écran, affiche-le au-dessus
       menuTop = offset.dy - menuHeight - 8;
     }
     _overlayEntry = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          // Zone de clic pour fermer le menu
           Positioned.fill(
             child: GestureDetector(
               onTap: _hideMenu,
               behavior: HitTestBehavior.translucent,
             ),
           ),
-          // Le menu lui-même
           Positioned(
             left: offset.dx,
             top: menuTop,
@@ -238,7 +232,6 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                         try {
                           await Supabase.instance.client.auth.signOut();
                         } catch (e) {
-                          // Silencieux, l'utilisateur est déjà supprimé
                         }
                         notesProvider.clearNotesDirectory();
                         if (mounted) {
@@ -288,7 +281,6 @@ class _UserProfileBandeauState extends State<_UserProfileBandeau> {
                             try {
                               await Supabase.instance.client.auth.signOut();
                             } catch (e) {
-                              // Silencieux, l'utilisateur est déjà supprimé
                             }
                             notesProvider.clearNotesDirectory();
                             if (mounted) {

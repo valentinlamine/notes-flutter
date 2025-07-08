@@ -59,7 +59,6 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
     }
 
     if (widget.note == null) {
-      // Créer une nouvelle note
       final note = Note(
         title: title,
         content: content,
@@ -74,7 +73,6 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
         return;
       }
     } else {
-      // Mettre à jour une note existante
       final updatedNote = Note(
         id: widget.note!.id,
         title: title,
@@ -147,7 +145,6 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
       appBar: AppBar(
         title: Text(widget.note == null ? 'Nouvelle note' : 'Modifier la note'),
         actions: [
-          // Basculer entre le mode édition et aperçu
           IconButton(
             icon: Icon(_previewMode ? Icons.edit : Icons.preview),
             onPressed: () {
@@ -157,20 +154,17 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
             },
             tooltip: _previewMode ? 'Mode édition' : 'Aperçu Markdown',
           ),
-          // Bouton d'export
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: _exportNote,
             tooltip: 'Exporter la note',
           ),
-          // Bouton de suppression (uniquement pour les notes existantes)
           if (widget.note != null)
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: () => _deleteNote(context),
               tooltip: 'Supprimer la note',
             ),
-          // Bouton de sauvegarde
           IconButton(
             icon: const Icon(Icons.save),
             onPressed: () => _saveNote(context),
@@ -182,7 +176,6 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Champ de titre
             TextField(
               controller: _titleController,
               decoration: const InputDecoration(
@@ -192,7 +185,6 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
               enabled: !_previewMode,
             ),
             const SizedBox(height: 16),
-            // Champ de tags
             TextField(
               controller: _tagsController,
               decoration: const InputDecoration(
@@ -203,7 +195,6 @@ class _NoteEditScreenState extends State<NoteEditScreen> {
               enabled: !_previewMode,
             ),
             const SizedBox(height: 16),
-            // Contenu (édition ou prévisualisation)
             Expanded(
               child: _previewMode
                   ? Card(
