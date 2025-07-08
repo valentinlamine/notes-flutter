@@ -42,7 +42,7 @@ class _ModernSidebarState extends State<ModernSidebar> {
                       height: 28,
                       width: 28,
                       colorFilter: ColorFilter.mode(
-                        Theme.of(context).primaryColor,
+                        const Color(0xFF7C5CFA),
                         BlendMode.srcIn,
                       ),
                     ),
